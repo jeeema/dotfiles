@@ -1,0 +1,910 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+shopt -s inherit_errexit
+shopt -s failglob
+
+# ====================================================================
+# Interactive install and update script (bash)
+# Tested *only* on Bash 5.2.21 on Ubuntu-24.04 LTS on WSL2
+# Shell completions and integrations are set only for bash
+# ====================================================================
+
+# ======================= Versions (IMPORTANT) =======================
+
+readonly go_version='1.26.2' # 2026/05/04
+readonly nodejs_version='25' # 2026/05/04, current (not LTS)
+
+# ====================================================================
+
+# This script's name
+readonly self_name="${0##*/}"
+
+# Default values for flags
+sudoable_flag='true'
+debug_flag='false'
+verbose_flag='false'
+force_flag='false'
+is_any_opt_flag='false'
+do_apt_seq_flag='false'
+do_blesh_seq_flag='false'
+do_rust_seq_flag='false'
+do_go_seq_flag='false'
+do_haskell_seq_flag='false'
+do_nodejs_seq_flag='false'
+
+# For visibility
+readonly color_reset='\033[0m'
+readonly color_red='\033[31m'
+readonly color_yellow='\033[33m'
+
+readonly shell_basename="${SHELL##*/}"
+
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+readonly bash_completion_dir="$XDG_DATA_HOME/bash-completion/completions"
+readonly dotfiles_path="$HOME/dotfiles"
+readonly submodules_path="$dotfiles_path/submodules"
+
+# ========================= Helper functions =========================
+
+_command_exists() {
+	command -v "$1" >/dev/null 2>&1
+}
+
+# TODO: Add print messsage when skip
+# TODO: Add exit on error when src is not present
+# TODO: Add path normalization
+# creates a symbolic link in a safe way
+_safe_ln_s() {
+	# executes only if linked destination($2) is neither present nor a symblic link
+	if [[ ! -e $2 ]] && [[ ! -L $2 ]]; then
+		mkdir -p "$(dirname "$2")"
+		echo "ln -s $1 $2"
+		ln -s "$1" "$2"
+	fi
+}
+
+# Interactive installation helper
+ask_and_install() {
+	local -r tool_name="$1"
+	local -r check_cond="$2"
+	local -r install_script="$3"
+
+	if eval "$check_cond"; then
+		echo "✅ $tool_name is already installed."
+	else
+		read -rp "$tool_name is not installed. Do you want to install it? [Y/n]: " yn
+		case "$yn" in
+		[Nn]*)
+			# skip if $yn starts with N or n
+			echo "Skip installing $tool_name."
+			;;
+		*)
+			# run installation otherwise (Enter, Y, y)
+			echo "⏬ Installing $tool_name..."
+			eval "$install_script"
+			echo -e "✅ COMPLETE installing $tool_name.\n"
+			;;
+		esac
+	fi
+}
+
+# =============================== APT ================================
+
+# GitHub CLI (https://github.com/cli/cli)
+_install_gh() {
+	curl -fsSL -o - https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --show-keys
+	echo 'Check the key fingerprints at https://github.com/cli/cli/blob/trunk/docs/install_linux.md'
+	read -rp 'Do you proceed? [Y/n]: ' yn
+	case "$yn" in
+	[Nn]*)
+		echo 'Cancel installing GitHub CLI.'
+		exit 1
+		;;
+	*)
+		# https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
+		sudo mkdir -p -m 755 /etc/apt/keyrings
+		out=$(mktemp) && wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+		cat "$out" | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+		sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+		sudo mkdir -p -m 755 /etc/apt/sources.list.d
+		echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+		sudo apt update
+		sudo apt install -y "${apt_opts[@]}" gh
+		;;
+	esac
+}
+
+# Intel oneAPI Toolkit
+# NOTE: Only Ubuntu LTS is officially supported, so do not upgrade Ubuntu carelessly
+# https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneapi-toolkit-download.html
+_install_intel_oneapi_toolkit() {
+	# download the key to system keyring
+	wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB |
+		gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg >/dev/null
+
+	# add signed entry to apt sources and configure the APT client to use Intel repository:
+	echo 'deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main' | sudo tee /etc/apt/sources.list.d/oneAPI.list
+	sudo apt update
+	sudo apt install "${apt_opts[@]}" intel-oneapi-toolkit
+}
+
+apt_seq() {
+	if [[ $sudoable_flag = false ]]; then
+		return
+	fi
+
+	local apt_opts=()
+	[[ "$verbose_flag" = 'true' ]] && apt_opts+=('--show-versions')
+
+	if [[ "$debug_flag" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	read -rp "Do you want to refresh APT packges? [Y/n]: " yn
+	case "$yn" in
+	[Nn]*)
+		# skip if $yn starts with N or n
+		echo "Skip refreshing APT packges."
+		;;
+	*)
+		sudo apt update
+		sudo apt upgrade
+		sudo apt autoremove --purge
+		sudo apt autoclean
+		printf '✅ COMPLETE refreshing APT packages.\n\n'
+		;;
+	esac
+
+	echo '⏬ Installing APT packages...'
+	local -r apt_packages=(
+		'bash-completion'
+		'bear'
+		'build-essential'
+		'clangd'
+		'clang-format'
+		'cmake'
+		'curl'
+		'direnv'
+		'ffmpeg'
+		'gawk'
+		'gawk-doc'
+		'gdb-doc'
+		'gnupg'
+		'gnuplot'
+		'graphviz'
+		'htop'
+		'hwloc'
+		'imagemagick'
+		'iputils-tracepath'
+		'jq'
+		'language-pack-ja'
+		'libnotify-bin'
+		'libpcre2-dev'
+		'libsixel-bin'
+		'libssl-dev'
+		'linux-tools-generic'
+		'manpages-ja'
+		'manpages-ja-dev'
+		'parallel'
+		'pcre2-utils'
+		'pkg-config'
+		'rename'
+		'socat'
+		'tree'
+		'valgrind'
+		'wget'
+		'wl-clipboard'
+		'whois'
+		'zip'
+	)
+
+	for pkg in "${apt_packages[@]}"; do
+		if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'ok installed'; then
+			echo "⏬ Installing $pkg..."
+			sudo apt install -y "${apt_opts[@]}" "$pkg"
+		fi
+	done
+
+	# TeX Live
+	ask_and_install 'TeX Live' "dpkg-query -W -f='\${Status}' texlive-full 2>/dev/null | grep -q 'ok installed'" "sudo apt install -y ${apt_opts[*]} 'texlive*'"
+
+	ask_and_install 'GitHub CLI' '_command_exists gh' '_install_gh'
+
+	local vendor_id
+	vendor_id="$(grep -m 1 -oP '^vendor_id\s:\s\K.*' /proc/cpuinfo)"
+	if [[ ${vendor_id:-} = 'GenuineIntel' ]]; then
+		ask_and_install 'Intel oneAPI Toolkit' "dpkg-query -W -f='\${Status}' intel-oneapi-toolkit 2>/dev/null | grep -q 'ok installed'" '_install_intel_oneapi_toolkit'
+	fi
+
+	printf '✅ COMPLETE installing APT packages.\n\n'
+}
+
+# ============================== ble.sh ==============================
+
+# https://github.com/akinomyoga/ble.sh#quick-instructions
+blesh_seq() {
+	if [[ $force_flag == 'true' || ! -f $HOME/.local/share/blesh/ble.sh ]]; then
+		echo 'Installing ble.sh...'
+		make -C "$submodules_path/ble.sh" install PREFIX=~/.local
+		printf '✅ COMPLETE installing ble.sh.\n\n'
+	fi
+	bash "$submodules_path/ble.sh/out/ble.sh" --update
+	_safe_ln_s "$dotfiles_path/.blerc" "$HOME/.blerc"
+}
+
+# =============================== Rust ===============================
+
+# -------- bat (https://github.com/sharkdp/bat) --------
+_setup_bat() {
+	echo "Entering $submodules_path/bat"
+	pushd "$submodules_path/bat" >/dev/null
+	cargo install --path . --locked "${cargo_opts[@]}"
+	popd >/dev/null
+	echo "Leaving $submodules_path/bat"
+
+	# manpage
+	\cp "$(fd bat.1 "$submodules_path"/bat/target/release/build/bat-*)" "$HOME/.cargo/share/man/man1"
+
+	# shell completion (https://github.com/sharkdp/bat#from-cratesio
+	case $shell_basename in
+	bash)
+		bat --completion bash >"$bash_completion_dir/bat.bash"
+		;;
+	zsh)
+		# ensure ~/.zfunc is in your fpath
+		bat --completion zsh >"$HOME/.zfunc/_bat"
+		;;
+	fish)
+		bat --completion fish >"$XDG_CONFIG_HOME/fish/completions/bat.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} Add the shell configuration for '${shell_basename}'."
+		;;
+	esac
+	# config file
+	_safe_ln_s "$dotfiles_path/bat/config" "$(bat --config-file)"
+	# themes
+	_safe_ln_s "$dotfiles_path/bat/themes" "$(bat --config-dir)/themes"
+	bat cache --build # Update the binary cache
+}
+
+_setup_brush() {
+	cargo install "${cargo_opts[@]}" --locked brush-shell
+	_safe_ln_s "$dotfiles_path/brush/config.toml" "$XDG_CONFIG_HOME/brush/config.toml"
+}
+
+# TODO: Set color theme
+# -------- delta (https://dandavison.github.io/delta/) --------
+_setup_delta() {
+	cargo install "${cargo_opts[@]}" git-delta
+
+	# shell completion (https://dandavison.github.io/delta/tips-and-tricks/shell-completion.html)
+	case $shell_basename in
+	bash)
+		delta --generate-completion bash >"$bash_completion_dir/delta.bash"
+		;;
+	zsh)
+		delta --generate-completion zsh >"$HOME/.zfunc/_delta"
+		;;
+	fish)
+		delta --generate-completion fish >"$XDG_CONFIG_HOME/fish/completions/delta.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} Add the shell configuration for '${shell_basename}'."
+		;;
+	esac
+}
+
+# TODO: Installing from a local source looks best
+# -------- eza (https://eza.rocks/) --------
+_setup_eza() {
+	# shell completion (https://eza.rocks/)
+	:
+}
+
+# -------- fd (https://github.com/sharkdp/fd) --------
+_setup_fd() {
+	cargo install "${cargo_opts[@]}" fd-find
+
+	# download manpage 'fd.1' from GH repo
+	# Downloading directly from the repository can result in a mismatch between the installed version of fd
+	# and the version of the man page (let's just not worry about it)
+	curl -s 'https://raw.githubusercontent.com/sharkdp/fd/master/doc/fd.1' -o "$HOME/.cargo/share/man/man1/fd.1"
+
+	# shell completion (https://github.com/sharkdp/fd#completions)
+	case $shell_basename in
+	bash)
+		fd --gen-completions bash >"$bash_completion_dir/fd.bash"
+		;;
+	zsh)
+		# ensure ~/.zfunc is in your fpath
+		fd --gen-completions zsh >"$HOME/.zfunc/_fd"
+		;;
+	fish)
+		fd --gen-completions fish >"$XDG_CONFIG_HOME/fish/completions/fd.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} Add the shell configuration for '${shell_basename}'."
+		;;
+	esac
+	# config file
+	_safe_ln_s "$dotfiles_path/fd/ignore" "$XDG_CONFIG_HOME/fd/ignore"
+}
+
+_setup_helix() {
+	# Optimized build of Helix
+	echo "Entering $submodules_path/helix"
+	pushd "$submodules_path/helix" >/dev/null
+	cargo install \
+		--profile opt \
+		--config 'build.rustflags="-C target-cpu=native"' \
+		--path helix-term \
+		--locked \
+		"${cargo_opts[@]}"
+	popd >/dev/null
+	echo "Leaving $submodules_path/helix"
+
+	# shell completion
+	case $shell_basename in
+	bash)
+		_safe_ln_s "$submodules_path/helix/contrib/completion/hx.bash" "$bash_completion_dir/hx.bash"
+		;;
+	zsh)
+		_safe_ln_s "$submodules_path/helix/contrib/completion/hx.zsh" "$HOME/.zfunc/_hx"
+		;;
+	fish)
+		_safe_ln_s "$submodules_path/helix/contrib/completion/hx.fish" "$XDG_CONFIG_HOME/fish/completions/hx.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} No shell configuration found for '${shell_basename}'."
+		;;
+	esac
+	# config files
+	_safe_ln_s "$dotfiles_path/helix/config.toml" "$XDG_CONFIG_HOME/helix/config.toml"
+	_safe_ln_s "$dotfiles_path/helix/languages.toml" "$XDG_CONFIG_HOME/helix/languages.toml"
+	_safe_ln_s "$dotfiles_path/helix/themes" "$XDG_CONFIG_HOME/helix/themes"
+}
+
+# -------- navi (https://github.com/denisidoro/navi) --------
+_setup_navi() {
+	bash <(curl -sL https://raw.githubusercontent.com/denisidoro/navi/master/scripts/install)
+
+	_safe_ln_s "$dotfiles_path/navi/config.yaml" "$(navi info config-path)"
+}
+
+# -------- ripgrep (https://github.com/BurntSushi/ripgrep) --------
+_setup_ripgrep() {
+	# Release build with PCRE2 support (https://github.com/BurntSushi/ripgrep/tree/master#building)
+	echo "Entering $submodules_path/ripgrep"
+	pushd "$submodules_path/ripgrep" >/dev/null
+	cargo install --path . --features 'pcre2' "${cargo_opts[@]}"
+	popd >/dev/null
+	echo "Leaving $submodules_path/ripgrep"
+
+	# manpage (https://github.com/BurntSushi/ripgrep/blob/master/FAQ.md#manpage)
+	rg --generate man >"$HOME/.cargo/share/man/man1/rg.1"
+
+	# shell completion (https://github.com/BurntSushi/ripgrep/blob/master/FAQ.md#complete)
+	case $shell_basename in
+	bash)
+		rg --generate complete-bash >"$bash_completion_dir/rg.bash"
+		;;
+	zsh)
+		rg --generate complete-zsh >"$HOME/.zsh-complete/_rg"
+		;;
+	fish)
+		rg --generate complete-fish >"$XDG_CONFIG_HOME/fish/completions/rg.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} No shell configuration found for '${shell_basename}'."
+		;;
+	esac
+}
+
+# TODO
+# -------- sd () --------
+_setup_sd() {
+	:
+}
+
+# -------- Starship (https://starship.rs/) --------
+_setup_starship() {
+	ask_and_install 'Starship' '_command_exists starship' 'curl -sSf https://starship.rs/install.sh | sh'
+	_safe_ln_s "$dotfiles_path/starship.toml" "$XDG_CONFIG_HOME/starship.toml"
+}
+
+# -------- Tealdeer (https://tealdeer-rs.github.io/tealdeer/) --------
+_setup_tealdeer() {
+
+	# Release build with native TLS support (https://tealdeer-rs.github.io/tealdeer/installing.html#build-from-source)
+	echo "Entering $submodules_path/tealdeer"
+	pushd "$submodules_path/tealdeer" >/dev/null
+	cargo install --path . --features 'native-tls' "${cargo_opts[@]}"
+	popd >/dev/null
+	echo "Leaving $submodules_path/tealdeer"
+
+	# shell completion (https://tealdeer-rs.github.io/tealdeer/installing.html#autocompletion)
+	case $shell_basename in
+	bash)
+		_safe_ln_s "$submodules_path/tealdeer/completion/bash_tealdeer" "$bash_completion_dir/tldr.bash"
+		;;
+	zsh)
+		_safe_ln_s "$submodules_path/tealdeer/completion/zsh_tealdeer" "$HOME/.zsh-complete/_tldr"
+		;;
+	fish)
+		_safe_ln_s "$submodules_path/tealdeer/completion/fish_tealdeer" "$XDG_CONFIG_HOME/fish/completions/tldr.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} No shell configuration found for '${shell_basename}'."
+		;;
+	esac
+
+	_safe_ln_s "$dotfiles_path/tealdeer/config.toml" "$(tldr --show-paths | awk '/^Config path:/{print $3}')"
+}
+
+# TODO
+# -------- Typst (https://typst.app/) --------
+_setup_typst() {
+	cargo install --locked "${cargo_opts[@]}" typst-cli # https://github.com/typst/typst#installation
+}
+
+# TODO
+# -------- Tinymist (https://myriad-dreamin.github.io/tinymist) --------
+_setup_tinymist() {
+	cargo install --git https://github.com/Myriad-Dreamin/tinymist --locked "${cargo_opts[@]}" tinymist-cli
+}
+
+# TODO
+# -------- typstyle (https://typstyle-rs.github.io/typstyle/) --------
+_setup_typstyle() {
+	cargo binstall "${cargo_opts[@]}" typstyle # https://typstyle-rs.github.io/typstyle/installation.html#label-Cargo%20Installation
+}
+
+# -------- yazi (https://yazi-rs.github.io/) --------
+_setup_yazi() {
+	cargo install --locked "${cargo_opts[@]}" resvg # For SVG preview
+	cargo install "${cargo_opts[@]}" yazi-build
+}
+
+# -------- zellij (https://zellij.dev/) --------
+_setup_zellij() {
+	cargo install --locked "${cargo_opts[@]}" zellij
+
+	_safe_ln_s "$dotfiles_path/zellij/config.kdl" "$XDG_CONFIG_HOME/zellij/config.kdl"
+}
+
+# TODO
+# -------- zoxide (https://crates.io/crates/zoxide) --------
+_setup_zoxide() {
+	curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+}
+
+# --------------------------------------------------------------------
+
+_install_rust_toolchains() {
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	# shellcheck disable=SC1091
+	[[ -f $HOME/.cargo/env ]] && . "$HOME/.cargo/env"
+}
+
+# This is a relatively heavy sequence
+rust_seq() {
+	local cargo_opts=()
+	[[ "$verbose_flag" = 'true' ]] && cargo_opts+=('--verbose')
+	[[ "$force_flag" = 'true' ]] && cargo_opts+=('--force')
+
+	if [[ "$debug_flag" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	ask_and_install 'Rust toolchains' '_command_exists rustup' '_install_rust_toolchains'
+	rustup update
+
+	echo '⏬ Installing Rust crates...'
+
+	# cargo-binstall (https://github.com/cargo-bins/cargo-binstall)
+	ask_and_install 'cargo-binstall' '_command_exists cargo-binstall' "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+	cargo binstall "${cargo_opts[@]}" cargo-binstall
+
+	local -r crates=(
+		'bat:true'
+		'brush:false'
+		'delta:true'
+		'eza:true'
+		'fd:true'
+		'helix:true'
+		'navi:true'
+		'ripgrep:true'
+		'sd:true'
+		'starship:true'
+		'tealdeer:true'
+		'typst:false'
+		'tinymist:false'
+		'typstyle:false'
+		'yazi:true'
+		'zellij:true'
+		'zoxide:true'
+	)
+
+	local crate nosudo
+	for crate_flag in "${crates[@]}"; do
+		IFS=':' read -r crate nosudo <<<"$crate_flag"
+		if [[ $sudoable_flag == true || $nosudo = true ]]; then
+			"_setup_${crate}"
+		fi
+	done
+
+	printf '✅ COMPLETE installing Rust crates.\n\n'
+}
+
+# ================================ Go ================================
+
+# -------- fzf (https://junegunn.github.io/fzf/) --------
+_setup_fzf() {
+	"$submodules_path/fzf/install" --bin
+	_safe_ln_s "$dotfiles_path/.fzf.bash" "$HOME/.fzf.bash"
+}
+
+# -------- ghq (https://github.com/x-motemen/ghq) --------
+_setup_ghq() {
+	go install "${go_opts[@]}" github.com/x-motemen/ghq@latest
+}
+
+# TODO
+# -------- lazygit (https://github.com/jesseduffield/lazygit#installation) --------
+_setup_lazygit() {
+	go install "${go_opts[@]}" github.com/jesseduffield/lazygit@latest
+	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$XDG_CONFIG_HOME/lazygit/config.yml"
+}
+
+# -------- shfmt (https://github.com/mvdan/sh#shfmt) --------
+_setup_shfmt() {
+	go install "${go_opts[@]}" mvdan.cc/sh/v3/cmd/shfmt@latest
+}
+
+# --------------------------------------------------------------------
+
+# TODO
+_install_go() {
+	if [ -d '/usr/local/go' ]; then
+		echo -e "${color_red}error: Something is wrong with your existing Go installation.${color_reset}" >&2
+		exit 1
+	else
+		curl --output-dir "$HOME/src/" -fLO "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz"
+		sudo tar -C '/usr/local' -xzf "$HOME/src/go${go_version}.linux-amd64.tar.gz"
+		export PATH="$PATH:$HOME/go/bin:/usr/local/go/bin"
+	fi
+}
+
+go_seq() {
+	local go_opts=()
+	[[ "$verbose_flag" = 'true' ]] && go_opts+=('-v' '-x')
+	[[ "$force_flag" = 'true' ]] && go_opts+=('-a')
+
+	if [[ "$debug_flag" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	# TODO
+	# https://go.dev/doc/install
+	if _command_exists go; then
+		local installed_go_version
+		installed_go_version="$(go version | cut -d' ' -f3 | sed 's/^go//')"
+		if [[ $installed_go_version = "$go_version" ]]; then
+			echo "✅ Go $go_version is already installed."
+		else
+			read -rp "Version $go_version is specified, but it appears that version $installed_go_version is already installed. Do you want to remove the existing version $installed_go_version and install version $go_version? [Y/n]: " yn
+			case "$yn" in
+			[Nn]*)
+				echo 'Skip installing Go.'
+				;;
+			*)
+				echo "❗ Removing Go $installed_go_version..."
+				sudo rm -rf '/usr/local/go'
+				echo "✅ COMPLETE removing Go $installed_go_version."
+				echo "⏬ Installing Go $go_version..."
+				_install_go
+				echo -e "✅ COMPLETE installing Go $go_version.\n"
+				;;
+			esac
+		fi
+	else
+		read -rp 'Go is not installed. Do you want to install it? [Y/n]: ' yn
+		case "$yn" in
+		[Nn]*)
+			echo 'Skip installing Go.'
+			;;
+		*)
+			echo "⏬ Installing Go $go_version..."
+			_install_go
+			echo -e "✅ COMPLETE installing Go $go_version.\n"
+			;;
+		esac
+	fi
+
+	echo '⏬ Installing Go tools...'
+
+	_setup_fzf
+	_setup_lazygit
+	_setup_shfmt
+
+	printf '✅ COMPLETE installing Go tools.\n\n'
+}
+
+# TODO
+# ============================= Haskell ==============================
+
+_install_haskell_toolchains() {
+	curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+	# shellcheck disable=SC1091
+	[[ -f $HOME/.ghcup/env ]] && . "$HOME/.ghcup/env" # ghcup-env
+}
+
+# This is a relatively heavy sequence
+haskell_seq() {
+	# TODO: Add cabal_opts & stack_opts
+	local ghcup_opts=()
+	[[ "$verbose_flag" = 'true' ]] && ghcup_opts+=('--verbose')
+	[[ "$force_flag" = 'true' ]] && ghcup_opts+=('--force')
+
+	if [[ "$debug_flag" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	ask_and_install 'Haskell toolchains' '_command_exists ghcup' '_install_haskell_toolchains'
+	ghcup upgrade "${ghcup_opts[@]}"
+
+	# Upgrade to latest versions, and set them to defaults
+	ghcup install "${ghcup_opts[@]}" ghc latest --set
+	ghcup install "${ghcup_opts[@]}" hls latest --set
+	ghcup install "${ghcup_opts[@]}" cabal latest --set
+	ghcup install "${ghcup_opts[@]}" stack latest --set
+
+	# Update package indices
+	cabal update
+	stack update
+
+	echo '⏬ Installing Haskell packages...'
+	# ShellCheck (https://www.shellcheck.net/)
+	cabal install ShellCheck --overwrite-policy=always # https://github.com/koalaman/shellcheck#installing
+
+	printf '✅ COMPLETE installing Haskell packages.\n\n'
+}
+
+# TODO
+# ============================= Node.js ==============================
+
+nodejs_seq() {
+	local npm_opts=()
+	[[ "$verbose_flag" = 'true' ]] && npm_opts+=('--verbose')
+	[[ "$force_flag" = 'true' ]] && npm_opts+=('--force' '--legacy-peer-deps')
+
+	if [[ "$debug_flag" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	# https://github.com/Schniz/fnm
+	curl -fsSL 'https://fnm.vercel.app/install' | bash -s -- --skip-shell # fnm installation & upgrade (skip appending shell specific loader to shell config file)
+	local -r FNM_PATH="$HOME/.local/share/fnm"
+	if [ -d "$FNM_PATH" ]; then
+		export PATH="$FNM_PATH:$PATH"
+	fi
+	# https://github.com/Schniz/fnm#completions
+	# TODO: fnm completions --shell bash
+	eval "$(fnm env --use-on-cd --shell bash)"
+
+	ask_and_install "Node.js $nodejs_version" '_command_exists node' "fnm install $nodejs_version && fnm default $nodejs_version && fnm use $nodejs_version"
+	npm install npm@latest -g "${npm_opts[@]}" # npm update
+
+	echo '⏬ Installing npm packages...'
+
+	# bash language server
+	# TODO: Add explainshell integration
+	_command_exists shellcheck >/dev/null && _command_exists shfmt >/dev/null && npm i -g "${npm_opts[@]}" bash-language-server
+
+	printf '✅ COMPLETE installing npm packages.\n\n'
+}
+
+# ====================================================================
+
+help() {
+	cat <<EOF
+Usage: $(basename "$0") [OPTIONS...] [TARGETS...]
+
+Options:
+  -d, --debug    Enable debug mode
+  -v, --verbose  Enable verbose output
+  -f, --force    Force installation (override existing installations)
+  -h, --help     Show this help message
+
+Targets:
+  --apt          Install & update APT packages
+  --blesh        Install & update ble.sh
+  --rust         Install & update Rust toolchain and crates
+  --go           Install & update Go and tools
+  --haskell      Install & update Haskell toolchain and packages
+  --nodejs       Install & update Node.js and npm packages
+
+By default, all targets are executed. If one or more target flags are
+specified, only those explicitly selected targets will be run.
+EOF
+}
+
+parse_args() {
+	local parsed_args
+
+	# -o dvfh: short options (-d, -v, -f, -h)
+	# -l debug,verbose,force,help: long options
+	if ! parsed_args=$(getopt -n "$0" -o dvfh -l debug,verbose,force,help,apt,blesh,rust,go,haskell,nodejs -- "$@"); then
+		# Simply exit because getopt prints an error when an invalid options is passed
+		exit 1
+	fi
+
+	eval set -- "$parsed_args"
+
+	while true; do
+		case "$1" in
+		-d | --debug)
+			debug_flag='true'
+			echo '⚒️ DEBUG flag specified'
+			shift
+			;;
+		-v | --verbose)
+			verbose_flag='true'
+			echo '📢 VERBOSE flag specified'
+			set -x
+			shift
+			;;
+		-f | --force)
+			force_flag='true'
+			echo '❗ FORCE flag specified (existing installations will be overridden)'
+			shift
+			;;
+		-h | --help)
+			help
+			exit 0
+			;;
+		--apt)
+			do_apt_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--blesh)
+			do_blesh_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--rust)
+			do_rust_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--go)
+			do_go_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--haskell)
+			do_haskell_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--nodejs)
+			do_nodejs_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--)
+			# End of options
+			shift
+			break
+			;;
+		*)
+			echo -e "${color_red}INTERNAL ERROR: reached an unrechable pattern${color_reset}" >&2
+			exit 1
+			;;
+		esac
+	done
+}
+
+# make some directories
+make_dirs() {
+	mkdir -p "$XDG_CONFIG_HOME"
+
+	mkdir -p "$HOME/.local/bin"
+
+	# path to place user-specific bash completions
+	mkdir -p "$XDG_DATA_HOME/bash-completion/completions"
+
+	# When you want to install a new font family, put it into this directory
+	# and then execute `fc-cache -fv`
+	mkdir -p "$XDG_DATA_HOME/fonts" # the directory where user-specific font files will be installed
+
+	mkdir -p "$XDG_DATA_HOME/man/man1"     # man pages directory for those commands installed to $HOME/.local/bin
+	mkdir -p "$HOME/.cargo/share/man/man1" # man pages directory for the commands installed via cargo
+
+	if [[ $sudoable_flag == true ]]; then
+		mkdir -p "$HOME/bin"
+		mkdir -p "$HOME/Documents"
+		mkdir -p "$HOME/Downloads"
+	fi
+}
+
+make_symlinks() {
+	local -r src_dest_list=(
+		'.bash_profile' "$HOME/.bash_profile"
+		'.profile' "$HOME/.profile"
+		'.bashrc' "$HOME/.bashrc"
+		'.bash_aliases' "$HOME/.bash_aliases"
+
+		'git/ignore' "$XDG_CONFIG_HOME/git/ignore"
+		'.vimrc' "$HOME/.vimrc"
+		'.nanorc' "$HOME/.nanorc"
+		'clangd/config.yaml' "$XDG_CONFIG_HOME/clangd/config.yaml"
+		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
+		'.amrvis.defaults' "$HOME/.amrvis.defaults"
+		'gnuplot/gnuplot-wxt.conf' "$XDG_CONFIG_HOME/gnuplot/gnuplot-wxt.conf"
+
+		# 'fish/config.fish'              "$XDG_CONFIG_HOME/fish/config.fish"
+		# 'fish/functions/run.fish'       "$XDG_CONFIG_HOME/fish/functions/run.fish"
+		# 'fish/functions/realwhich.fish' "$XDG_CONFIG_HOME/fish/functions/realwhich.fish"
+		# 'fish/functions/mkcdir.fish'    "$XDG_CONFIG_HOME/fish/functions/mkcdir.fish"
+		# 'fish/functions/sedelta.fish'   "$XDG_CONFIG_HOME/fish/functions/sedelta.fish"
+		# 'fish/functions/sediff.fish'    "$XDG_CONFIG_HOME/fish/functions/sediff.fish"
+
+		# 'init.el'   "$HOME/.emacs.d/init.el"
+		# 'custom.el' "$HOME/.emacs.d/custom.el"
+		# 'cargo-atcoder.toml' "$XDG_CONFIG_HOME/cargo-atcoder.toml"
+	)
+
+	# Iterate the list pair by pair
+	for ((i = 0; i < ${#src_dest_list[@]}; i += 2)); do
+		local src="${src_dest_list[i]}"
+		local dest="${src_dest_list[i + 1]}"
+		_safe_ln_s "$dotfiles_path/$src" "$dest"
+	done
+}
+
+main() {
+	parse_args "$@"
+
+	make_dirs
+	make_symlinks
+
+	if [[ "$do_apt_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		apt_seq
+	fi
+
+	if [[ "$do_blesh_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		blesh_seq
+	fi
+
+	if [[ "$do_rust_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		rust_seq
+	fi
+
+	if [[ "$do_go_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		go_seq
+	fi
+
+	if [[ "$do_haskell_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		haskell_seq
+	fi
+
+	if [[ "$do_nodejs_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		nodejs_seq
+	fi
+
+	if [[ "$debug_flag" = 'false' ]]; then
+		printf '🎉 Deployment is successful.\n   Restart the shell, or re-source '~/.profile'.\n'
+	fi
+}
+
+(return 0 2>/dev/null) || main "$@"

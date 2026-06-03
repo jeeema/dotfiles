@@ -1,0 +1,744 @@
+snippet MultiSet
+    #[derive(Clone)]
+    struct MultiSet<K: std::cmp::Ord> {
+        len: usize,
+        bm: BTreeMap<K, usize>,
+    }
+
+    impl<K: std::cmp::Ord> MultiSet<K> {
+        fn new() -> Self {
+            Self {
+                len: 0,
+                bm: BTreeMap::new(),
+            }
+        }
+        fn len(&self) -> usize {
+            self.len
+        }
+        fn len_as_set(&self) -> usize {
+            self.bm.len()
+        }
+        fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
+        fn multiplicity(&self, x: &K) -> usize {
+            *self.bm.get(x).unwrap_or(&0)
+        }
+        fn contains(&self, x: &K) -> bool {
+            self.multiplicity(x) > 0
+        }
+        fn insert(&mut self, x: K) {
+            self.len += 1;
+            *self.bm.entry(x).or_insert(0) += 1;
+        }
+        fn remove(&mut self, x: &K) -> bool {
+            let n = self.multiplicity(x);
+            if n > 0 {
+                if n == 1 {
+                    self.bm.remove(x);
+                } else {
+                    *self.bm.get_mut(x).unwrap() -= 1;
+                }
+                self.len -= 1;
+                true
+            } else {
+                false
+            }
+        }
+        fn first(&self) -> Option<&K> {
+            self.bm.keys().next()
+        }
+        fn last(&self) -> Option<&K> {
+            self.bm.keys().next_back()
+        }
+    }
+
+    impl<K: std::cmp::Ord + Clone> MultiSet<K> {
+        fn pop_first(&mut self) -> Option<K> {
+            match self.first() {
+                Some(x) => {
+                    let x = x.clone();
+                    self.remove(&x);
+                    Some(x)
+                }
+                None => None,
+            }
+        }
+        fn pop_last(&mut self) -> Option<K> {
+            match self.last() {
+                Some(x) => {
+                    let x = x.clone();
+                    self.remove(&x);
+                    Some(x)
+                }
+                None => None,
+            }
+        }
+    }
+
+snippet RollingHash
+    const B1: i64 = 1007;
+    const MOD1: i64 = 1000000007;
+    const B2: i64 = 2009;
+    const MOD2: i64 = 1000000009;
+    struct RollingHash {
+        hash1: Vec<i64>,
+        hash2: Vec<i64>,
+        memoized_power1: Vec<i64>,
+        memoized_power2: Vec<i64>,
+    }
+    impl RollingHash {
+        fn new(s: &str) -> Self {
+            let n = s.len();
+            let construct_mamoized_power = |b, p| {
+                (0..=n)
+                    .scan(0, |acc, _| {
+                        if *acc == 0 {
+                            *acc = 1;
+                            Some(*acc)
+                        } else {
+                            *acc *= b;
+                            *acc %= p;
+                            Some(*acc)
+                        }
+                    })
+                    .collect_vec()
+            };
+            let memoized_power1 = construct_mamoized_power(B1, MOD1);
+            let memoized_power2 = construct_mamoized_power(B2, MOD2);
+            let construct_hash = |b, p| {
+                std::iter::once(0)
+                    .chain(s.bytes().map(|c| c as i64))
+                    .scan(0, |acc, c| {
+                        *acc = (*acc * b + c) % p;
+                        Some(*acc)
+                    })
+                    .collect_vec()
+            };
+            let hash1 = construct_hash(B1, MOD1);
+            let hash2 = construct_hash(B2, MOD2);
+            Self {
+                hash1,
+                hash2,
+                memoized_power1,
+                memoized_power2,
+            }
+        }
+        fn get_double_hashes(&self, l: usize, r: usize) -> (i64, i64) {
+            if l >= r {
+                panic!("The condition l < r must hold.");
+            }
+            let (l, r) = (l + 1, r + 1);
+            let hash1 =
+                (self.hash1[r - 1] - self.hash1[l - 1] * self.memoized_power1[r - l]).rem_euclid(MOD1);
+            let hash2 =
+                (self.hash2[r - 1] - self.hash2[l - 1] * self.memoized_power2[r - l]).rem_euclid(MOD2);
+            (hash1, hash2)
+        }
+    }
+snippet BinaryIndexedTree
+    struct BinaryIndexedTree {
+        node: Vec<i64>,
+        identity: i64,
+    }
+    impl BinaryIndexedTree {
+        fn new(v: &Vec<i64>, identity: i64) -> Self {
+            let mut res = BinaryIndexedTree {
+                node: vec![identity; v.len() + 1],
+                identity,
+            };
+            for i in 0..v.len() {
+                res.add(i, v[i]);
+            }
+            res
+        }
+        fn add(&mut self, mut i: usize, x: i64) {
+            i += 1;
+            while i < self.node.len() {
+                self.node[i] += x;
+                i += i & (!i + 1);
+            }
+        }
+        fn sum(&self, mut r: usize) -> i64 {
+            let mut ans = self.identity;
+            while r > 0 {
+                ans += self.node[r];
+                r -= r & (!r + 1);
+            }
+            ans
+        }
+    }
+
+snippet Dijkstra
+    let adj = make_adjvec_undirected(n, &uv);
+    let mut pq = BinaryHeap::new();
+    pq.push((Reverse(0), 0));
+    let mut dist = vec![INF; n];
+    while let Some((Reverse(cost), u)) = pq.pop() {
+        if dist[u] <= cost { continue; }
+        dist[u] = cost;
+        for &(v, c) in &adj[u] {
+            let t = cost + c;
+            if t < dist[v] {
+                pq.push((Reverse(t), v));
+            }
+        }
+    }
+snippet SegmentTree
+    struct SegmentTree {
+        n: usize,
+        node: Vec<i64>,
+        identity: i64,
+    }
+    impl SegmentTree {
+        fn new(v: &Vec<i64>, identity: i64) -> Self {
+            let mut n = 1;
+            while n < v.len() {
+                n *= 2;
+            }
+            let n = n;
+            let mut node = vec![identity; 2 * n - 1];
+            for i in 0..v.len() {
+                node[n - 1 + i] = v[i];
+            }
+            for i in (0..n - 1).rev() {
+                node[i] = min(node[2 * i + 1], node[2 * i + 2]);
+            }
+            SegmentTree { n, node, identity }
+        }
+        fn update(&mut self, mut i: usize, x: i64) {
+            i += self.n - 1;
+            self.node[i] = x;
+            while i > 0 {
+                i = (i - 1) / 2;
+                self.node[i] = min(self.node[2 * i + 1], self.node[2 * i + 2]);
+            }
+        }
+        fn rangeq(&self, a: usize, b: usize) -> i64 {
+            self.rangeq_inner(a, b, 0, 0, self.n)
+        }
+        fn rangeq_inner(&self, a: usize, b: usize, curr: usize, l: usize, r: usize) -> i64 {
+            if r <= a || b <= l {
+                self.identity
+            } else if a <= l && r <= b {
+                self.node[curr]
+            } else {
+                let vl = self.rangeq_inner(a, b, 2 * curr + 1, l, (l + r) / 2);
+                let vr = self.rangeq_inner(a, b, 2 * curr + 2, (l + r) / 2, r);
+                min(vl, vr)
+            }
+        }
+    }
+snippet warshall_floyd_directed
+    let mut dist = vec![vec![INF; n]; n];
+    for i in 0..n { dist[i][i] = 0; }
+    for (a, b, c) in abc {
+        dist[a][b] = c;
+    }
+    for k in 0..n {
+        for i in 0..n {
+            for j in 0..n {
+                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+            }
+        }
+    }
+snippet warshall_floyd_undirected
+    let mut dist = vec![vec![INF; n]; n];
+    for i in 0..n { dist[i][i] = 0; }
+    for (a, b, c) in abc {
+        dist[a][b] = c;
+        dist[b][a] = c;
+    }
+    for k in 0..n {
+        for i in 0..n {
+            for j in 0..n {
+                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+            }
+        }
+    }
+
+snippet Comb
+    struct Comb {
+        fact: Vec<i64>,
+        finv: Vec<i64>,
+        inv: Vec<i64>,
+    }
+
+    impl Comb {
+        fn new(n: i64) -> Self {
+            let mut fact = vec![1; (n as usize) + 1];
+            let mut finv = vec![1; (n as usize) + 1];
+            let mut inv = vec![1; (n as usize) + 1];
+            for i in 2..=n {
+                fact[i as usize] = (fact[i as usize - 1] * i) % P;
+                inv[i as usize] = P - ((inv[(P % i) as usize] * (P / i)) % P);
+                finv[i as usize] = (finv[i as usize - 1] * inv[i as usize]) % P;
+            }
+            Self { fact, finv, inv }
+        }
+        fn comb(&self, n: i64, k: i64) -> i64 {
+            (self.fact[n as usize] * ((self.finv[k as usize] * self.finv[(n - k) as usize]) % P)) % P
+        }
+    }
+
+snippet DpComb
+    struct DpComb(Vec<Vec<i64>>);
+    #[allow(dead_code)]
+    impl DpComb {
+        fn new(n: i64) -> Self {
+            let n = n as usize;
+            let mut cc = DpComb(vec![Vec::with_capacity(n + 1); n + 1]);
+            cc.0[0].push(1);
+            for i in 1..=n {
+                cc.0[i].push(1);
+                for j in 1..i {
+                    let a = cc.0[i - 1][j - 1] + cc.0[i - 1][j];
+                    cc.0[i].push(a);
+                }
+                cc.0[i].push(1);
+            }
+            cc
+        }
+        fn comb(&self, n: i64, k: i64) -> i64 {
+            self.0[n as usize][k as usize]
+        }
+    }
+
+snippet OsaK
+    struct OsaK {
+        size: usize,
+        minimum_prime_number: Vec<i64>,
+    }
+    impl OsaK {
+        fn new(n: i64) -> Self {
+            let mut mpn = vec![n + 1; (n + 1) as usize];
+            for i in 2..=n {
+                let mut k = i;
+                while k <= n {
+                    mpn[k as usize] = min(mpn[k as usize], i);
+                    k += i;
+                }
+            }
+            OsaK {
+                size: n as usize,
+                minimum_prime_number: mpn,
+            }
+        }
+        fn size(&self) -> usize {
+            self.size
+        }
+        fn is_prime(&self, x: i64) -> bool {
+            x == self.minimum_prime_number[x as usize]
+        }
+        fn prime_factorize(&self, x: i64) -> Vec<(i64, u32)> {
+            let mut ans: Vec<(i64, u32)> = Vec::new();
+            if (self.size as i64) < x {
+                panic!("x is out of range! You're such a moron.");
+            }
+            let mut x = x;
+            while x != 1 {
+                let p = self.minimum_prime_number[x as usize];
+                match ans.last() {
+                    Some(r) if r.0 == p => {
+                        let l = ans.len();
+                        ans[l-1] = (p, ans[l-1].1 + 1);
+                    }
+                    _ => {
+                        ans.push((p, 1));
+                    }
+                }
+                x /= p;
+            }
+            ans
+        }
+    }
+
+snippet UnionFind
+    struct UnionFind(Vec<isize>);
+    impl UnionFind {
+        fn new(n: usize) -> UnionFind {
+            UnionFind(vec![-1; n])
+        }
+        fn find(&mut self, x: usize) -> usize {
+            if self.0[x] < 0 {
+                x
+            } else {
+                let root = self.find(self.0[x] as usize);
+                self.0[x] = root as isize;
+                root
+            }
+        }
+        fn unite(&mut self, x: usize, y: usize) {
+            let (px, py) = (self.find(x), self.find(y));
+            if px == py {
+                return;
+            }
+            if self.0[px] <= self.0[py] {
+                self.0[px] += self.0[py];
+                self.0[py] = px as isize;
+            } else {
+                self.0[py] += self.0[px];
+                self.0[px] = py as isize;
+            }
+        }
+        fn size(&mut self, x: usize) -> i64 {
+            let root = self.find(x) as usize;
+            (-self.0[root]) as i64
+        }
+        fn same(&mut self, x: usize, y: usize) -> bool {
+            self.find(x) == self.find(y)
+        }
+    }
+
+snippet HalfOpenInterval
+    enum EndPointKind {
+        Closed,
+        Open,
+        OpenAndClosed,
+    }
+    struct HalfOpenInterval(BTreeMap<usize, EndPointKind>);
+    impl HalfOpenInterval {
+        pub fn new() -> Self {
+            HalfOpenInterval(BTreeMap::new())
+        }
+        fn find(&self, x: usize) -> Option<(usize, usize)> {
+            match self.0.range(..=x).next_back() {
+                Some((&left, kind)) => match *kind {
+                    EndPointKind::Closed | EndPointKind::OpenAndClosed => {
+                        match self.0.range(x + 1..).next() {
+                            Some((&right, _)) => Some((left, right)),
+                            _ => unreachable!(),
+                        }
+                    }
+                    EndPointKind::Open => None,
+                },
+                _ => None,
+            }
+        }
+        fn add(&mut self, left: usize, right: usize) {
+            if left >= right {
+                panic!("the condition (left < right) was broken");
+            }
+            match self.0.range(..=left).next_back() {
+                Some((&i, kind)) => match *kind {
+                    EndPointKind::Open => {
+                        if left == i {
+                            self.0.insert(left, EndPointKind::OpenAndClosed);
+                        } else {
+                            self.0.insert(left, EndPointKind::Closed);
+                        }
+                    }
+                    _ => {}
+                },
+                None => {
+                    self.0.insert(left, EndPointKind::Closed);
+                }
+            }
+            let mut list = Vec::with_capacity(self.0.len());
+            for (&i, _) in self.0.range(left + 1..right) {
+                list.push(i);
+            }
+            for i in list {
+                self.0.remove(&i);
+            }
+            match self.0.range(right..).next() {
+                Some((&i, kind)) => match *kind {
+                    EndPointKind::Closed => {
+                        if right == i {
+                            self.0.insert(right, EndPointKind::OpenAndClosed);
+                        } else {
+                            self.0.insert(right, EndPointKind::Open);
+                        }
+                    }
+                    _ => {}
+                },
+                None => {
+                    self.0.insert(right, EndPointKind::Open);
+                }
+            }
+        }
+        fn cut(&mut self, cutpoint: usize) -> bool {
+            match self.find(cutpoint) {
+                Some((l, r)) => {
+                    if l < cutpoint && cutpoint < r {
+                        self.0.insert(cutpoint, EndPointKind::OpenAndClosed);
+                    }
+                    true
+                }
+                None => false,
+            }
+        }
+    }
+snippet comb_once
+    fn comb_once(n: i64, k: i64) -> i64 {
+        let k = k.min(n - k);
+        let mut nu = 1;
+        let mut de = 1;
+        for i in 0..k {
+            nu = nu * (n - i) % P;
+            de = de * (i + 1) % P;
+        }
+        nu * integer::mod_pow(de, P - 2) % P
+    }
+    fn mod_pow(r: i64, mut n: i64) -> i64 {
+        let mut t = 1;
+        let mut s = r % P;
+        while n > 0 {
+            if n & 1 == 1 {
+                t = t * s % P;
+            }
+            s = s * s % P;
+            n >>= 1;
+        }
+        t
+    }
+
+snippet extended_euclid
+    fn extended_euclid(a: i64, b: i64) -> (i64, i64) {
+        if a == 0 {
+            (0, 1)
+        } else {
+            let (x, y) = extended_euclid(b % a, a);
+            (y - (b / a) * x, x)
+        }
+    }
+
+snippet ModPow
+    struct ModPow {
+        base: i64,
+        n: i64,
+        pow: Vec<i64>,
+    }
+
+    impl ModPow {
+        fn new(base: i64, n: i64) -> Self {
+            let mut pow = vec![1; (n as usize) + 1];
+            for i in 1..=n {
+                pow[i as usize] = (pow[(i as usize) - 1] * base) % P;
+            }
+            Self { base, n, pow }
+        }
+        fn pow(&self, k: i64) -> i64 {
+            self.pow[k as usize]
+        }
+    }
+
+snippet mod_pow
+    fn mod_pow(r: u64, mut n: u64) -> u64 {
+        let mut t = 1;
+        let mut s = r % P;
+        while n > 0 {
+            if n & 1 == 1 {
+                t = t * s % P;
+            }
+            s = s * s % P;
+            n >>= 1;
+        }
+        t
+    }
+
+snippet multiples
+    fn multiples(r: std::ops::RangeInclusive<i64>, n: i64) -> i64 {
+        *r.end() / n - (((*r.start() + n - 1) / n) - 1)
+    }
+
+snippet rle
+    fn rle<T>(v: &[T]) -> Vec<(T, usize)>
+    where
+        T: std::cmp::PartialEq + std::marker::Copy,
+    {
+        if v.len() == 1 {
+            return vec![(v[0], 1)];
+        }
+        let mut tups = Vec::with_capacity(v.len() + 1);
+        let mut acc = 1;
+        for t in v.iter().copied().tuple_windows().with_position() {
+            match t {
+                Position::First((curr, next)) | Position::Middle((curr, next)) => {
+                    if curr == next {
+                        acc += 1;
+                    } else {
+                        tups.push((curr, acc));
+                        acc = 1;
+                    }
+                }
+                Position::Last((curr, next)) | Position::Only((curr, next)) => {
+                    if curr == next {
+                        tups.push((curr, acc + 1));
+                    } else {
+                        tups.push((curr, acc));
+                        tups.push((next, 1));
+                    }
+                }
+            }
+        }
+        tups
+    }
+
+snippet sieve
+    fn sieve(n: i64) -> Vec<bool> {
+        let mut is_prime = vec![true; n as usize];
+        is_prime[0] = false;
+        is_prime[1] = false;
+        if n < 2 {
+            return is_prime;
+        }
+        let mut p = 2;
+        while p * p <= n - 1 {
+            if !is_prime[p as usize] {
+                p += 1;
+                continue;
+            }
+            let mut pos = p * p;
+            for _ in 0..=((n - 1 - pos) / p) {
+                is_prime[pos as usize] = false;
+                pos += p;
+            }
+            p += 1;
+        }
+        is_prime
+    }
+
+snippet enumerate_divisors
+    fn enumerate_divisors(x: i64) -> Vec<i64> {
+        let mut ans = Vec::new();
+        let mut d = 1;
+        while d*d <= x {
+            if x % d == 0 {
+                ans.push(d);
+                if x/d != d {
+                    ans.push(x/d);
+                }
+            }
+            d += 1;
+        }
+        ans
+    }
+
+snippet solo_prime_factorize
+    fn solo_prime_factorize(mut n: i64) -> Vec<(i64, u32)> {
+        let m = n;
+        let mut res = Vec::with_capacity(65);
+        let mut p = 2;
+        let mut e = 0u32;
+        while p * p <= m {
+            if n % p == 0 {
+                e += 1;
+                n /= p;
+            } else if e > 0 {
+                res.push((p, e));
+                e = 0;
+                p += 1;
+            } else {
+                p += 1;
+            }
+        }
+        if n > 1 {
+            res.push((n, 1u32));
+        }
+        res
+    }
+
+snippet Graph
+    struct Graph {
+        adj: Vec<Vec<usize>>,
+        seen: Vec<bool>,
+    }
+    impl Graph {
+        fn new(edges: &Vec<(usize, usize)>, node_num: usize) -> Self {
+            let mut adj = vec![Vec::new(); node_num];
+            for &(a, b) in edges {
+                adj[a].push(b);
+                adj[b].push(a);
+            }
+            Self {
+                adj,
+                seen: vec![false; node_num],
+            }
+        }
+        fn len(&self) -> usize {
+            self.adj.len()
+        }
+        fn dfs(&mut self, curr: usize) {
+            self.seen[curr] = true;
+            for i in 0..self.adj[curr].len() {
+                let next = self.adj[curr][i];
+                if !self.seen[next] {
+                    self.dfs(next);
+                }
+            }
+        }
+        fn forget(&mut self) {
+            for i in 0..self.len() { self.seen[i] = false; }
+        }
+    }
+
+snippet bfs
+    let mut queue = VecDeque::with_capacity(n);
+    let mut dist = vec![INF; n];
+    dist[0] = 0;
+    queue.push_back(0);
+    while let Some(curr) = queue.pop_front() {
+        for &next in &adj[curr] {
+            if dist[curr] + 1 < dist[next] {
+                dist[next] = dist[curr] + 1;
+                queue.push_back(next);
+            }
+        }
+    }
+snippet up_down_left_right
+    if i > 0 && a[i - 1][j] != '#' {
+    }
+    if j < w - 1 && a[i][j + 1] != '#' {
+    }
+    if i < h - 1 && a[i + 1][j] != '#' {
+    }
+    if j > 0 && a[i][j - 1] != '#' {
+    }
+
+snippet down_right
+    if j < w - 1 && a[i][j + 1] != '#' {
+    }
+    if i < h - 1 && a[i + 1][j] != '#' {
+    }
+
+snippet make_adjvec_undirected
+    fn make_adjvec_undirected(edges: &Vec<(usize, usize)>, node_num: usize) -> Vec<Vec<usize>> {
+        let mut ans = vec![Vec::new(); node_num];
+        for &(a, b) in edges {
+            ans[a].push(b);
+            ans[b].push(a);
+        }
+        ans
+    }
+
+snippet Cumsum2d
+    struct Cumsum2d(Vec<Vec<i64>>);
+    impl Cumsum2d {
+        fn new(a: &[Vec<i64>]) -> Self {
+            let (h, w) = (a.len(), a[0].len());
+            let mut sum = std::iter::once(vec![0; w + 1])
+                .chain(a.into_iter().map(|r| {
+                    std::iter::once(0)
+                        .chain(r.into_iter().cumsum())
+                        .collect_vec()
+                }))
+                .collect_vec();
+            for j in 1..=w {
+                for i in 1..=h {
+                    sum[i][j] += sum[i - 1][j];
+                }
+            }
+            Self(sum)
+        }
+        fn get(&self, p: (usize, usize), q: (usize, usize)) -> i64 {
+            let p = (p.0 + 1, p.1 + 1);
+            let q = (q.0 + 1, q.1 + 1);
+            self.0[q.0][q.1] - self.0[q.0][p.1 - 1] - self.0[p.0 - 1][q.1] + self.0[p.0 - 1][p.1 - 1]
+        }
+    }
+
+snippet manhattan_distance
+    fn manhattan_distance<T: num::Signed + Copy>(x: (T, T), y: (T, T)) -> T {
+        num::abs(y.0 - x.0) + num::abs(y.1 - x.1)
+    }

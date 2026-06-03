@@ -1,0 +1,4 @@
+CompileFlags:
+	Add: [-Wall, -Wextra, -pedantic-errors, -Wshadow, -Wfloat-conversion, -Wsign-conversion, -Wfloat-equal, -Wold-style-cast, -Wnon-virtual-dtor, -Woverloaded-virtual, -Wno-empty-translation-unit]
+	# Intel compiler flags
+	Remove: [-xHost, -qopenmp, -ipo, -qpot-report, -fp-model=precise]

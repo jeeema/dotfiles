@@ -1,0 +1,163 @@
+# =============================== APT ================================
+
+apt_seq() {
+	local APT_OPTS=()
+	[[ "$VERBOSE" = 'true' ]] && APT_OPTS+=('--show-versions')
+
+	if [[ "$DEBUG" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	echo '⏬ Installing APT packages...'
+	local -r APT_PACKAGES=(
+		'bear'
+		'clangd'
+		'clang-format'
+		'direnv'
+		'gnupg'
+		'htop'
+		'hwloc'
+		'jq'
+		'linux-tools-generic'
+		'parallel'
+		'rename'
+		'tree'
+		'valgrind'
+	)
+
+	printf '✅ COMPLETE installing APT packages.\n\n'
+}
+
+# ============================== ble.sh ==============================
+
+blesh_seq() {
+	if [[ "$DEBUG" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	if [[ ! -f $HOME/.local/share/blesh/ble.sh ]]; then
+		echo 'Installing ble.sh...'
+		make -C "$SUBMODULES/ble.sh" install PREFIX=~/.local
+		printf '✅ COMPLETE installing ble.sh.\n\n'
+	fi
+	bash "$SUBMODULES/ble.sh/out/ble.sh" --update
+}
+
+# =============================== Rust ===============================
+
+
+# This is a relatively heavy sequence
+rust_seq() {
+	# TODO
+	# Optimized build of Helix
+	echo "Entering $SUBMODULES/helix"
+	pushd "$SUBMODULES/helix" >/dev/null
+	cargo install \
+		--profile opt \
+		--config 'build.rustflags="-C target-cpu=native"' \
+		--path helix-term \
+		--locked \
+		"${CARGO_OPTS[@]}"
+	popd >/dev/null
+	echo "Leaving $SUBMODULES/helix"
+
+	# Starship ()
+	ask_and_install 'Starship' '_command_exists starship' 'curl -sSf https://starship.rs/install.sh | sh'
+
+	# TODO
+	# -------- tlrc () --------
+}
+
+# TODO
+# ================================ Go ================================
+
+go_seq() {
+	local GO_OPTS=()
+	[[ "$VERBOSE" = 'true' ]] && GO_OPTS+=('-v' '-x')
+	[[ "$FORCE" = 'true' ]] && GO_OPTS+=('-a')
+
+	if [[ "$DEBUG" = 'true' ]]; then
+		# do some tests here
+		# TODO: ghq (https://github.com/x-motemen/ghq)
+		go install "${GO_OPTS[@]}" github.com/x-motemen/ghq@latest
+		return
+	fi
+
+	# https://go.dev/doc/install
+	if _command_exists go >/dev/null 2>&1; then
+		INSTALLED_GO_VERSION="$(go version | cut -d' ' -f3 | sed 's/^go//')"
+		if [[ $INSTALLED_GO_VERSION = "$GO_VERSION" ]]; then
+			echo "✅ Go $GO_VERSION is already installed."
+		else
+			read -rp "Version $GO_VERSION is specified, but it appears that version $INSTALLED_GO_VERSION is already installed. Do you want to remove the existing version $INSTALLED_GO_VERSION and install version $GO_VERSION? [Y/n]: " yn
+			case "$yn" in
+			[Nn]*)
+				echo 'Skip installing Go.'
+				;;
+			*)
+				echo "Removing Go $INSTALLED_GO_VERSION..."
+				sudo rm -rf '/usr/local/go'
+				echo "✅ COMPLETE removing Go $INSTALLED_GO_VERSION."
+				echo "⏬ Installing Go $GO_VERSION..."
+				_install_go
+				echo -e "✅ COMPLETE installing Go $GO_VERSION.\n"
+				;;
+			esac
+		fi
+	else
+		read -rp 'Go is not installed. Do you want to install it? [Y/n]: ' yn
+		case "$yn" in
+		[Nn]*)
+			echo 'Skip installing Go.'
+			;;
+		*)
+			echo "⏬ Installing Go $GO_VERSION..."
+			_install_go
+			echo -e "✅ COMPLETE installing Go $GO_VERSION.\n"
+			;;
+		esac
+	fi
+
+	echo '⏬ Installing Go tools...'
+	# TODO
+	# -------- fzf (https://junegunn.github.io/fzf/) --------
+
+	# shfmt (https://github.com/mvdan/sh#shfmt)
+	go install "${GO_OPTS[@]}" mvdan.cc/sh/v3/cmd/shfmt@latest
+
+	# lazygit (https://github.com/jesseduffield/lazygit#installation)
+	go install "${GO_OPTS[@]}" github.com/jesseduffield/lazygit@latest
+
+	printf '✅ COMPLETE installing Go tools.\n\n'
+}
+
+# TODO
+install_shellcheck() {
+	if [[ "$DEBUG" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	echo '⏬ Installing ShellCheck...'
+	# ShellCheck (https://www.shellcheck.net/)
+	cabal install ShellCheck --overwrite-policy=always # https://github.com/koalaman/shellcheck#installing
+
+	printf '✅ COMPLETE installing Haskell packages.\n\n'
+}
+
+# TODO
+install_bash_language_server() {
+	if [[ "$DEBUG" = 'true' ]]; then
+		# do some tests here
+		return
+	fi
+
+	echo '⏬ Installing bash languager server...'
+
+	# bash language server
+	_command_exists shellcheck >/dev/null && _command_exists shfmt >/dev/null && npm i -g bash-language-server
+
+	printf '✅ COMPLETE installing npm bash languager server.\n\n'
+}

@@ -1,0 +1,30 @@
+[[language]]
+name = "bash"
+auto-format = true
+formatter = { command = "shfmt" }
+
+[[language]]
+name = "c"
+auto-format = true
+formatter = { command = "clang-format", args = ["--style={ BasedOnStyle: LLVM, IndentWidth: 4 , BreakBeforeBinaryOperators: true}"] }
+indent = { tab-width = 4, unit = "    " }
+
+[[language]]
+name = "cpp"
+auto-format = true
+formatter = { command = "clang-format", args = ["--style={ BasedOnStyle: LLVM, IndentWidth: 4 , BreakBeforeBinaryOperators: true}"] }
+indent = { tab-width = 4, unit = "    " }
+
+[[language]]
+name = "rust"
+formatter = { command = "rustfmt" }
+
+[[language]]
+name = "typst"
+auto-format = true
+formatter = { command = "typstyle" }
+
+[language-server.tinymist]
+command = "tinymist"
+# config.exportPdf = "onSave"
+# config.preview.background = { enabled = "true", args = ["--data-plane-host=127.0.0.1:23635", "--invert-colors=never", "--open"] }

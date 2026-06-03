@@ -1,0 +1,28 @@
+[submodule "submodules/ble.sh"]
+	path = submodules/ble.sh
+	url = https://github.com/akinomyoga/ble.sh.git
+	shallow = true
+	ignore = untracked
+[submodule "submodules/helix"]
+	path = submodules/helix
+	url = https://github.com/helix-editor/helix
+	shallow = true
+[submodule "submodules/fzf"]
+	path = submodules/fzf
+	url = https://github.com/junegunn/fzf.git
+	shallow = true
+[submodule "submodules/ripgrep"]
+	path = submodules/ripgrep
+	url = https://github.com/BurntSushi/ripgrep
+	shallow = true
+[submodule "submodules/bat"]
+	path = submodules/bat
+	url = https://github.com/sharkdp/bat
+	shallow = true
+[submodule "submodules/tealdeer"]
+	path = submodules/tealdeer
+	url = https://github.com/tealdeer-rs/tealdeer
+	shallow = true
+[submodule "bat/themes/ayu-bat"]
+	path = bat/themes/ayu-bat
+	url = https://github.com/jeeema/ayu-bat.git
