@@ -27,11 +27,11 @@ verbose_flag='false'
 force_flag='false'
 is_any_opt_flag='false'
 do_apt_seq_flag='false'
-do_blesh_seq_flag='false'
 do_rust_seq_flag='false'
 do_go_seq_flag='false'
 do_haskell_seq_flag='false'
 do_nodejs_seq_flag='false'
+do_misc_flag='false'
 
 # For visibility
 readonly color_reset='\033[0m'
@@ -161,7 +161,6 @@ apt_seq() {
 	echo '⏬ Installing APT packages...'
 	local -r apt_packages=(
 		'bash-completion'
-		'bear'
 		'build-essential'
 		'clangd'
 		'clang-format'
@@ -222,19 +221,6 @@ apt_seq() {
 	printf '✅ COMPLETE installing APT packages.\n\n'
 }
 
-# ============================== ble.sh ==============================
-
-# https://github.com/akinomyoga/ble.sh#quick-instructions
-blesh_seq() {
-	if [[ $force_flag == 'true' || ! -f $HOME/.local/share/blesh/ble.sh ]]; then
-		echo 'Installing ble.sh...'
-		make -C "$submodules_path/ble.sh" install PREFIX=~/.local
-		printf '✅ COMPLETE installing ble.sh.\n\n'
-	fi
-	bash "$submodules_path/ble.sh/out/ble.sh" --update
-	_safe_ln_s "$dotfiles_path/.blerc" "$HOME/.blerc"
-}
-
 # =============================== Rust ===============================
 
 # -------- bat (https://github.com/sharkdp/bat) --------
@@ -271,6 +257,21 @@ _setup_bat() {
 	bat cache --build # Update the binary cache
 }
 
+# -------- Bear (https://github.com/rizsotto/Bear/) --------
+_setup_Bear() {
+	# https://github.com/rizsotto/Bear/blob/master/INSTALL.md
+	echo "Entering $submodules_path/Bear"
+	pushd "$submodules_path/Bear" >/dev/null
+	cargo build --release "${cargo_opts[@]}"
+	# generate shell completion
+	target/release/generate-completions target/release/completions
+	./scripts/install.sh # install
+	popd >/dev/null
+	echo "Leaving $submodules_path/Bear"
+	# bear -- true # quick smoke test - should produce an empty compile_commands.json
+}
+
+# -------- brush (https://brush.sh/) --------
 _setup_brush() {
 	cargo install "${cargo_opts[@]}" --locked brush-shell
 	_safe_ln_s "$dotfiles_path/brush/config.toml" "$XDG_CONFIG_HOME/brush/config.toml"
@@ -312,7 +313,7 @@ _setup_fd() {
 	# download manpage 'fd.1' from GH repo
 	# Downloading directly from the repository can result in a mismatch between the installed version of fd
 	# and the version of the man page (let's just not worry about it)
-	curl -s 'https://raw.githubusercontent.com/sharkdp/fd/master/doc/fd.1' -o "$HOME/.cargo/share/man/man1/fd.1"
+	curl -sLO 'https://raw.githubusercontent.com/sharkdp/fd/master/doc/fd.1' --output-dir "$HOME/.cargo/share/man/man1"
 
 	# shell completion (https://github.com/sharkdp/fd#completions)
 	case $shell_basename in
@@ -463,6 +464,16 @@ _setup_typstyle() {
 	cargo binstall "${cargo_opts[@]}" typstyle # https://typstyle-rs.github.io/typstyle/installation.html#label-Cargo%20Installation
 }
 
+# -------- uv (https://docs.astral.sh/uv/) --------
+_setup_uv() {
+	if command -v uv >/dev/null 2>&1; then
+		uv self update
+	else
+		# install
+		curl -LsSf https://astral.sh/uv/install.sh | sh
+	fi
+}
+
 # -------- yazi (https://yazi-rs.github.io/) --------
 _setup_yazi() {
 	cargo install --locked "${cargo_opts[@]}" resvg # For SVG preview
@@ -512,6 +523,7 @@ rust_seq() {
 
 	local -r crates=(
 		'bat:true'
+		'Bear:true'
 		'brush:false'
 		'delta:true'
 		'eza:true'
@@ -525,6 +537,7 @@ rust_seq() {
 		'typst:false'
 		'tinymist:false'
 		'typstyle:false'
+		'uv:true'
 		'yazi:true'
 		'zellij:true'
 		'zoxide:true'
@@ -712,6 +725,25 @@ nodejs_seq() {
 	printf '✅ COMPLETE installing npm packages.\n\n'
 }
 
+# =============================== misc ===============================
+
+# ble.sh
+# https://github.com/akinomyoga/ble.sh#quick-instructions
+setup_blesh() {
+	if [[ $force_flag == 'true' || ! -f $HOME/.local/share/blesh/ble.sh ]]; then
+		echo 'Installing ble.sh...'
+		make -C "$submodules_path/ble.sh" install PREFIX=~/.local
+		printf '✅ COMPLETE installing ble.sh.\n\n'
+	fi
+	bash "$submodules_path/ble.sh/out/ble.sh" --update
+	_safe_ln_s "$dotfiles_path/.blerc" "$HOME/.blerc"
+}
+
+# compiledb (https://github.com/nickdiego/compiledb)
+setup_compiledb() {
+	uv tool install compiledb
+}
+
 # ====================================================================
 
 help() {
@@ -726,11 +758,11 @@ Options:
 
 Targets:
   --apt          Install & update APT packages
-  --blesh        Install & update ble.sh
   --rust         Install & update Rust toolchain and crates
   --go           Install & update Go and tools
   --haskell      Install & update Haskell toolchain and packages
   --nodejs       Install & update Node.js and npm packages
+  --misc         Install & update ble.sh, compiledb
 
 By default, all targets are executed. If one or more target flags are
 specified, only those explicitly selected targets will be run.
@@ -742,7 +774,7 @@ parse_args() {
 
 	# -o dvfh: short options (-d, -v, -f, -h)
 	# -l debug,verbose,force,help: long options
-	if ! parsed_args=$(getopt -n "$0" -o dvfh -l debug,verbose,force,help,apt,blesh,rust,go,haskell,nodejs -- "$@"); then
+	if ! parsed_args=$(getopt -n "$0" -o dvfh -l debug,verbose,force,help,apt,rust,go,haskell,nodejs,misc -- "$@"); then
 		# Simply exit because getopt prints an error when an invalid options is passed
 		exit 1
 	fi
@@ -776,11 +808,6 @@ parse_args() {
 			is_any_opt_flag='true'
 			shift
 			;;
-		--blesh)
-			do_blesh_seq_flag='true'
-			is_any_opt_flag='true'
-			shift
-			;;
 		--rust)
 			do_rust_seq_flag='true'
 			is_any_opt_flag='true'
@@ -798,6 +825,11 @@ parse_args() {
 			;;
 		--nodejs)
 			do_nodejs_seq_flag='true'
+			is_any_opt_flag='true'
+			shift
+			;;
+		--misc)
+			do_misc_flag='true'
 			is_any_opt_flag='true'
 			shift
 			;;
@@ -848,6 +880,7 @@ make_symlinks() {
 		'.vimrc' "$HOME/.vimrc"
 		'.nanorc' "$HOME/.nanorc"
 		'clangd/config.yaml' "$XDG_CONFIG_HOME/clangd/config.yaml"
+		'bear.yml' "$XDG_CONFIG_HOME/bear.yml"
 		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
 		'.amrvis.defaults' "$HOME/.amrvis.defaults"
 		'gnuplot/gnuplot-wxt.conf' "$XDG_CONFIG_HOME/gnuplot/gnuplot-wxt.conf"
@@ -882,10 +915,6 @@ main() {
 		apt_seq
 	fi
 
-	if [[ "$do_blesh_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
-		blesh_seq
-	fi
-
 	if [[ "$do_rust_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
 		rust_seq
 	fi
@@ -900,6 +929,11 @@ main() {
 
 	if [[ "$do_nodejs_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
 		nodejs_seq
+	fi
+
+	if [[ "$do_misc_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+		setup_blesh
+		setup_compiledb
 	fi
 
 	if [[ "$debug_flag" = 'false' ]]; then

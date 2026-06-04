@@ -26,3 +26,7 @@
 [submodule "bat/themes/ayu-bat"]
 	path = bat/themes/ayu-bat
 	url = https://github.com/jeeema/ayu-bat.git
+[submodule "submodules/Bear"]
+	path = submodules/Bear
+	url = https://github.com/rizsotto/Bear.git
+	shallow = true

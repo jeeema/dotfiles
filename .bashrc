@@ -145,8 +145,8 @@ fi
 # shellcheck disable=SC1091
 [ -f "$HOME/.fzf.bash" ] && . "$HOME/.fzf.bash"
 
+# uv (https://docs.astral.sh/uv/getting-started/installation/#shell-autocompletion)
 command -v uv >/dev/null 2>&1 && eval "$(uv generate-shell-completion bash)"
-
 command -v uvx >/dev/null 2>&1 && eval "$(uvx --generate-shell-completion bash)"
 
 # https://zellij.dev/documentation/controlling-zellij-through-cli.html#completions

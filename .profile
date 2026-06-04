@@ -33,7 +33,17 @@ fi
 
 # set PATH so it includes user's private bin if it exists
 if [ -d "$HOME/.local/bin" ]; then
-	export PATH="$HOME/.local/bin${PATH:+:$PATH}"
+	# NOTE: the codes inside this if clause is from $HOME/.local/bin/env script installed by uv's installer
+	# add binaries to PATH if they aren't added yet
+	# affix colons on either side of $PATH to simplify matching
+	case ":${PATH}:" in
+	*:"$HOME/.local/bin":*)
+		;;
+	*)
+		# Prepending path in case a system-installed binary needs to be overridden
+		export PATH="$HOME/.local/bin${PATH:+:$PATH}"
+		;;
+	esac
 fi
 
 if [ -f "$HOME/.cargo/env" ]; then
