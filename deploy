@@ -167,6 +167,7 @@ apt_seq() {
 		'cmake'
 		'curl'
 		'direnv'
+		'enscript'
 		'ffmpeg'
 		'gawk'
 		'gawk-doc'
@@ -911,27 +912,27 @@ main() {
 	make_dirs
 	make_symlinks
 
-	if [[ "$do_apt_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_apt_seq_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		apt_seq
 	fi
 
-	if [[ "$do_rust_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_rust_seq_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		rust_seq
 	fi
 
-	if [[ "$do_go_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_go_seq_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		go_seq
 	fi
 
-	if [[ "$do_haskell_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_haskell_seq_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		haskell_seq
 	fi
 
-	if [[ "$do_nodejs_seq_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_nodejs_seq_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		nodejs_seq
 	fi
 
-	if [[ "$do_misc_flag" = 'true' || "$is_any_opt_flag" = 'false' ]]; then
+	if [[ "$do_misc_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
 		setup_blesh
 		setup_compiledb
 	fi
