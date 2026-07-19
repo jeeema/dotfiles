@@ -34,6 +34,7 @@ alias mv='mv -i'
 
 # some git aliases
 alias gst='git status'
+alias glg='git log'
 
 # zoxide into ghq repository
 alias zor='cd $(ghq list --full-path | fzf)'
@@ -41,8 +42,8 @@ alias zor='cd $(ghq list --full-path | fzf)'
 # clipboard
 if [[ ${WSL_DISTRO_NAME:-} ]]; then
 	# WSL (Windows)
-	alias open='explorer.exe'
-	alias clip='clip.exe'
+	alias open='/mnt/c/Windows/explorer.exe'
+	alias clip='/mnt/c/Windows/System32/clip.exe'
 else
 	# Linux (Wayland)
 	alias clip='wl-copy'

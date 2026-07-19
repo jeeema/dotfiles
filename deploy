@@ -172,6 +172,7 @@ apt_seq() {
 		'gawk'
 		'gawk-doc'
 		'gdb-doc'
+		'gfortran'
 		'gnupg'
 		'gnuplot'
 		'graphviz'
@@ -181,6 +182,9 @@ apt_seq() {
 		'iputils-tracepath'
 		'jq'
 		'language-pack-ja'
+		'libblas-dev'
+		'liblapack-dev'
+		'liblapacke-dev'
 		'libnotify-bin'
 		'libpcre2-dev'
 		'libsixel-bin'
@@ -904,6 +908,10 @@ make_symlinks() {
 		local dest="${src_dest_list[i + 1]}"
 		_safe_ln_s "$dotfiles_path/$src" "$dest"
 	done
+
+	if [[ ${WSL_DISTRO_NAME:-} ]]; then
+		_safe_ln_s '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe' "$HOME/.local/bin/powershell.exe"
+	fi
 }
 
 main() {
