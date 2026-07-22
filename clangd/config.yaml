@@ -1,4 +1,33 @@
+Index:
+  # Enable project index generation in background (faster jump to definitions)
+  Background: 'Build'
+
 CompileFlags:
-	Add: [-Wall, -Wextra, -pedantic-errors, -Wshadow, -Wfloat-conversion, -Wsign-conversion, -Wfloat-equal, -Wold-style-cast, -Wnon-virtual-dtor, -Woverloaded-virtual, -Wno-empty-translation-unit]
-	# Intel compiler flags
-	Remove: [-xHost, -qopenmp, -ipo, -qpot-report, -fp-model=precise]
+  Add:
+    - '-Wall'
+    - '-Wextra'
+    - '-pedantic-errors'
+    - '-Wshadow'
+    - '-Wfloat-conversion'
+    - '-Wsign-conversion'
+    - '-Wfloat-equal'
+    - '-Wold-style-cast'
+    - '-Wnon-virtual-dtor'
+    - '-Woverloaded-virtual'
+    - '-Wno-empty-translation-unit'
+  Remove:
+    # Intel compiler flags
+    - '-xHost'
+    - '-qopenmp'
+    - '-fiopenmp'
+    - '-ipo'
+    - '-qpot-report'
+    - '-fp-model=*'
+    # CUDA compiler flags
+    - '--expt-extended-lambda'
+    - '--expt-relaxed-constexpr'
+    - "-forward-unknown-to-host-compiler"
+    - '-ccbin*'
+    - '-G'
+    - '-gencode*'
+    - '-Xcompiler*'

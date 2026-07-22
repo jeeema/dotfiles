@@ -13,7 +13,7 @@ shopt -s failglob
 # ======================= Versions (IMPORTANT) =======================
 
 readonly go_version='1.26.2' # 2026/05/04
-readonly nodejs_version='25' # 2026/05/04, current (not LTS)
+readonly nodejs_version='26' # 2026/07/21, current (not LTS)
 
 # ====================================================================
 
@@ -162,8 +162,10 @@ apt_seq() {
 	local -r apt_packages=(
 		'bash-completion'
 		'build-essential'
-		'clangd'
+		'clang'
 		'clang-format'
+		'clang-tidy'
+		'clangd'
 		'cmake'
 		'curl'
 		'direnv'
@@ -186,6 +188,7 @@ apt_seq() {
 		'liblapack-dev'
 		'liblapacke-dev'
 		'libnotify-bin'
+		'libomp-dev'
 		'libpcre2-dev'
 		'libsixel-bin'
 		'libssl-dev'

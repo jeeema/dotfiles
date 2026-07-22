@@ -6,13 +6,13 @@ formatter = { command = "shfmt" }
 [[language]]
 name = "c"
 auto-format = true
-formatter = { command = "clang-format", args = ["--style={ BasedOnStyle: Google, IndentWidth: 4, BreakBeforeBinaryOperators: true }"] }
+formatter = { command = "clang-format", args = ["--fallback-style=Google"] }
 indent = { tab-width = 4, unit = "    " }
 
 [[language]]
 name = "cpp"
 auto-format = true
-formatter = { command = "clang-format", args = ["--style={ BasedOnStyle: Google, IndentWidth: 4, BreakBeforeBinaryOperators: true }"] }
+formatter = { command = "clang-format", args = ["--fallback-style=Google"] }
 indent = { tab-width = 4, unit = "    " }
 
 [[language]]
