@@ -1,15 +1,22 @@
 BasedOnStyle: Google
 
-BreakBeforeBinaryOperators: All
-BreakBeforeBraces: Attach                # 波括弧は宣言と同じ行
-DerivePointerAlignment: false
-PointerAlignment: Left                   # ポインタの位置: 型にくっつける (Left)
-ReferenceAlignment: Left                 # 参照の位置: 型にくっつける (Left)
-QualifierAlignment: Right                # East const
 IndentWidth: 4
-UseTab: Never                            # スペースのみを使用
-ColumnLimit: 0                           # 1行の文字数制限: 自動改行しない (0)
-AlignConsecutiveAssignments: Consecutive # 連続する代入の縦揃え: 揃える
-AlignConsecutiveDeclarations: false      # 連続する宣言の縦揃え: 揃えない
-AllowShortFunctionsOnASingleLine: None
+UseTab: Never                             # スペースのみを使用
+ColumnLimit: 0                            # 1行の文字数制限: 自動改行しない (0)
+BreakBeforeBraces: Attach                 # 波括弧は宣言と同じ行
+BreakBeforeBinaryOperators: All
+DerivePointerAlignment: false
+PointerAlignment: Left                    # ポインタの位置: 型にくっつける (Left)
+ReferenceAlignment: Left                  # 参照の位置: 型にくっつける (Left)
+QualifierAlignment: Right                 # East const
+AlignTrailingComments: true
+AlignOperands: Align
+AlignArrayOfStructures: Right             # 配列の初期化や行列を見やすく保つ
+AlignConsecutiveAssignments: Consecutive  # 連続する代入の縦揃え: 揃える
+AlignConsecutiveDeclarations: Consecutive # 連続する宣言の縦揃え: 揃える
+AlignConsecutiveMacros: Consecutive
+IndentPPDirectives: BeforeHash            # プリプロセッサディレクティブのインデント
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty   # 中身が空の関数だけは1行に
+AllowShortLambdasOnASingleLine: Empty     # 中身が空のラムダだけは1行に
 AllowShortIfStatementsOnASingleLine: Never

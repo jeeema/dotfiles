@@ -15,6 +15,7 @@ CompileFlags:
     - '-Wnon-virtual-dtor'
     - '-Woverloaded-virtual'
     - '-Wno-empty-translation-unit'
+    - '-Wdocumentation'
   Remove:
     # Intel compiler flags
     - '-xHost'
@@ -31,3 +32,23 @@ CompileFlags:
     - '-G'
     - '-gencode*'
     - '-Xcompiler*'
+
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Info
+
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - llvm-header-guard
+      - misc-*
+      - modernize-*
+      - mpi-*
+      - openmp-*
+      - performance-*
+    CheckOptions:
+      readability-inconsistent-declaration-parameter-name.Strict: true
+      modernize-use-nullptr.NullMacros: 'NULL'
+
+Completion:
+  AllScopes: Yes
