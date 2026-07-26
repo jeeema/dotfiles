@@ -2,7 +2,7 @@
 	path = submodules/ble.sh
 	url = https://github.com/akinomyoga/ble.sh.git
 	shallow = true
-	ignore = untracked
+	ignore = dirty
 [submodule "submodules/helix"]
 	path = submodules/helix
 	url = https://github.com/helix-editor/helix

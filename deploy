@@ -236,6 +236,7 @@ apt_seq() {
 _setup_bat() {
 	echo "Entering $submodules_path/bat"
 	pushd "$submodules_path/bat" >/dev/null
+	cargo clean
 	cargo install --path . --locked "${cargo_opts[@]}"
 	popd >/dev/null
 	echo "Leaving $submodules_path/bat"
@@ -475,6 +476,7 @@ _setup_typstyle() {
 
 # -------- uv (https://docs.astral.sh/uv/) --------
 _setup_uv() {
+	export UV_NO_MODIFY_PATH=1
 	if command -v uv >/dev/null 2>&1; then
 		uv self update
 	else
