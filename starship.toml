@@ -1,2 +1,10 @@
 # Inserts a blank line between shell prompts
 add_newline = false
+
+[direnv]
+disabled = false
+
+[env_var.MY_ARBITRARY_ENV]
+variable = "MY_ARBITRARY_ENV"
+format = ': [$env_value]($style) '
+style = "bold green"

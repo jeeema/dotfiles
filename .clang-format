@@ -1,0 +1,15 @@
+BasedOnStyle: Google
+
+BreakBeforeBinaryOperators: All
+BreakBeforeBraces: Attach                # 波括弧は宣言と同じ行
+DerivePointerAlignment: false
+PointerAlignment: Left                   # ポインタの位置: 型にくっつける (Left)
+ReferenceAlignment: Left                 # 参照の位置: 型にくっつける (Left)
+QualifierAlignment: Right                # East const
+IndentWidth: 4
+UseTab: Never                            # スペースのみを使用
+ColumnLimit: 0                           # 1行の文字数制限: 自動改行しない (0)
+AlignConsecutiveAssignments: Consecutive # 連続する代入の縦揃え: 揃える
+AlignConsecutiveDeclarations: false      # 連続する宣言の縦揃え: 揃えない
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never

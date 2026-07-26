@@ -193,6 +193,7 @@ apt_seq() {
 		'libsixel-bin'
 		'libssl-dev'
 		'linux-tools-generic'
+		'lmod'
 		'manpages-ja'
 		'manpages-ja-dev'
 		'parallel'
@@ -888,6 +889,7 @@ make_symlinks() {
 		'.vimrc' "$HOME/.vimrc"
 		'.nanorc' "$HOME/.nanorc"
 		'clangd/config.yaml' "$XDG_CONFIG_HOME/clangd/config.yaml"
+		'.clang-format' "$HOME/.clang-format"
 		'bear.yml' "$XDG_CONFIG_HOME/bear.yml"
 		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
 		'.amrvis.defaults' "$HOME/.amrvis.defaults"

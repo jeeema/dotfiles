@@ -77,6 +77,11 @@ if [ -d "$FNM_PATH" ]; then
 	export PATH="$FNM_PATH${PATH:+:$PATH}"
 fi
 
+# Add ~/modulefiles to Lmod's search path
+if command -v module >/dev/null 2>&1; then
+	module use "$HOME/modulefiles"
+fi
+
 if command -v ghq >/dev/null 2>&1; then
 	_GHQ_ROOT="$(ghq root)"
 	if [ -d "$_GHQ_ROOT/github.com/AMReX-Codes/amrex" ]; then
