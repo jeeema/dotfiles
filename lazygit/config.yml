@@ -21,10 +21,10 @@ git:
   #   # https://git-scm.com/docs/gitattributes#_defining_an_external_diff_driver.
   #   useExternalDiffGitConfig: false
   #
-  # See https://github.com/jesseduffield/lazygit/blob/master/docs/Custom_Pagers.md
+  # See https://github.com/jesseduffield/lazygit/blob/master/docs/Custom_DiffRenderers.md
   # for more information.
-  pagers:
-    - pager: delta --dark --paging=never
+  diffRenderers:
+    - command: delta --dark --paging=never
 
 # Config relating to things outside of Lazygit like how files are opened,
 # copying to clipboard, etc

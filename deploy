@@ -178,6 +178,7 @@ apt_seq() {
 		'gnupg'
 		'gnuplot'
 		'graphviz'
+		'hdf5-tools'
 		'htop'
 		'hwloc'
 		'imagemagick'

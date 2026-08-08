@@ -46,6 +46,9 @@ Diagnostics:
       - mpi-*
       - openmp-*
       - performance-*
+    Remove:
+      - bugprone-easily-swappable-parameters
+      - misc-misplaced-const
     CheckOptions:
       readability-inconsistent-declaration-parameter-name.Strict: true
       modernize-use-nullptr.NullMacros: 'NULL'
