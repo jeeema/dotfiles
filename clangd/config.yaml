@@ -11,7 +11,7 @@ CompileFlags:
     - '-Wfloat-conversion'
     - '-Wsign-conversion'
     - '-Wfloat-equal'
-    - '-Wold-style-cast'
+    # - '-Wold-style-cast'
     - '-Wnon-virtual-dtor'
     - '-Woverloaded-virtual'
     - '-Wno-empty-translation-unit'

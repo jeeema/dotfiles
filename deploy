@@ -583,7 +583,7 @@ _setup_ghq() {
 # -------- lazygit (https://github.com/jesseduffield/lazygit#installation) --------
 _setup_lazygit() {
 	go install "${go_opts[@]}" github.com/jesseduffield/lazygit@latest
-	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$XDG_CONFIG_HOME/lazygit/config.yml"
+	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$(lazygit --print-config-dir)/config.yml"
 }
 
 # -------- shfmt (https://github.com/mvdan/sh#shfmt) --------
