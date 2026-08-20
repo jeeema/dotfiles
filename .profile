@@ -31,6 +31,19 @@ if [ -d "$HOME/bin" ]; then
 	export PATH="$HOME/bin${PATH:+:$PATH}"
 fi
 
+case "$(uname -m)" in
+x86_64)
+	LOCAL_PLATFORM=""
+	;;
+aarch64)
+	LOCAL_PLATFORM="aarch64-linux-gnu"
+	;;
+*)
+	printf 'Unsupported architecture: %s\n' "$(uname -m)" >&2
+	LOCAL_PLATFORM=""
+	;;
+esac
+
 # set PATH so it includes user's private bin if it exists
 if [ -d "$HOME/.local/bin" ]; then
 	# NOTE: the codes inside this if clause is from $HOME/.local/bin/env script installed by uv's installer
@@ -41,10 +54,15 @@ if [ -d "$HOME/.local/bin" ]; then
 		;;
 	*)
 		# Prepending path in case a system-installed binary needs to be overridden
-		export PATH="$HOME/.local/bin${PATH:+:$PATH}"
+		if [ -n "$LOCAL_PLATFORM" ]; then
+			export PATH="$HOME/.local/bin/$LOCAL_PLATFORM:$HOME/.local/bin${PATH:+:$PATH}"
+		else
+			export PATH="$HOME/.local/bin${PATH:+:$PATH}"
+		fi
 		;;
 	esac
 fi
+unset LOCAL_PLATFORM
 
 if [ -f "$HOME/.cargo/env" ]; then
 	# shellcheck disable=SC1091

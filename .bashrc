@@ -8,8 +8,9 @@ case $- in
 *) return ;;
 esac
 
-# Source global definitions (for RedHat-family distros)
+# Source global definitions (for Red Hat-family distros)
 if [ -r /etc/bashrc ]; then
+	# shellcheck disable=SC1091
 	. /etc/bashrc
 fi
 
