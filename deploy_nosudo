@@ -12,13 +12,15 @@ shopt -s failglob
 #   Linux / aarch64 / glibc or musl
 #
 # Installed tools:
-#   GitHub CLI, bat, fd, ripgrep, Helix, Zellij, zoxide, direnv, shfmt,
-#   Bash Language Server
+#   GitHub CLI, bat, fd, ripgrep, Helix, Zellij, zoxide, direnv, Starship,
+#   shfmt, Bash Language Server
+#
+# Nerd Fonts are intentionally left for the user to install separately.
 #
 # Bear is also checked, but is skipped while its upstream GitHub Releases
 # provide source archives only and no precompiled binaries.
 #
-# Shell completion and integration files are installed for Bash only.
+# Shell completion files are installed for Bash only.
 # ====================================================================
 
 readonly self_name="${0##*/}"
@@ -82,6 +84,7 @@ readonly install_bin_dir="$base_bin_dir${MACHINE_ARCH:+/$MACHINE_ARCH}"
 tmp_root=''
 gh_bin=''
 SELECTED_CANDIDATE=''
+SELECTION_SKIPPED='false'
 INSTALLED_BINARY=''
 NODE_BIN=''
 NPM_BIN=''
@@ -138,9 +141,15 @@ _print_version() {
 	printf '%s\n' "${output%%$'\n'*}"
 }
 
-# Sets SELECTED_CANDIDATE. A menu is shown only when more than one
-# candidate remains after filtering for the current platform.
+# Sets SELECTED_CANDIDATE and SELECTION_SKIPPED. A menu is shown only when
+# more than one candidate remains after filtering for the current platform.
+# Passing --allow-skip adds "0) skip" to that menu.
 _select_candidate() {
+	local allow_skip='false'
+	if [[ "${1:-}" == '--allow-skip' ]]; then
+		allow_skip='true'
+		shift
+	fi
 	local -r label="$1"
 	shift
 	local -a choices=("$@")
@@ -148,6 +157,7 @@ _select_candidate() {
 	local PS3
 
 	SELECTED_CANDIDATE=''
+	SELECTION_SKIPPED='false'
 
 	case ${#choices[@]} in
 	0)
@@ -159,14 +169,24 @@ _select_candidate() {
 	*)
 		[[ -t 0 ]] || _die "multiple release assets found for $label; run this script interactively"
 		printf '\nSelect a release asset for %s:\n' "$label" >&2
+		if [[ "$allow_skip" == 'true' ]]; then
+			printf '0) skip\n' >&2
+		fi
 		PS3='Enter the number: '
 		select choice in "${choices[@]}"; do
+			if [[ "$allow_skip" == 'true' && "$REPLY" == '0' ]]; then
+				SELECTION_SKIPPED='true'
+				break
+			fi
 			if [[ -n "${choice:-}" ]]; then
 				SELECTED_CANDIDATE="$choice"
 				break
 			fi
 			printf 'Invalid selection: %s\n' "$REPLY" >&2
 		done
+		if [[ "$SELECTION_SKIPPED" == 'true' ]]; then
+			return 0
+		fi
 		[[ -n "$SELECTED_CANDIDATE" ]] || _die "no release asset selected for $label"
 		;;
 	esac
@@ -379,8 +399,8 @@ _generate_bash_completion() {
 	ripgrep)
 		"$binary" --generate complete-bash
 		;;
-	zellij)
-		"$binary" setup --generate-completion bash
+	starship)
+		"$binary" completions bash
 		;;
 	*)
 		return 1
@@ -626,6 +646,9 @@ _asset_matches_platform() {
 	direnv)
 		[[ "$name" == "direnv.linux-$gh_arch" ]]
 		;;
+	starship)
+		[[ "$name" =~ ^starship-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
+		;;
 	shfmt)
 		[[ "$name" =~ ^shfmt_v.+_linux_${gh_arch}$ ]]
 		;;
@@ -784,7 +807,8 @@ _install_release_tool() {
 	zellij)
 		repo='zellij-org/zellij'
 		binary='zellij'
-		completion_name='zellij'
+		# The managed .bashrc generates Zellij's Bash completion at startup.
+		completion_name=''
 		;;
 	zoxide)
 		repo='ajeetdsouza/zoxide'
@@ -796,6 +820,11 @@ _install_release_tool() {
 		binary='direnv'
 		completion_name=''
 		package_kind='binary'
+		;;
+	starship)
+		repo='starship/starship'
+		binary='starship'
+		completion_name='starship'
 		;;
 	shfmt)
 		repo='mvdan/sh'
@@ -815,7 +844,11 @@ _install_release_tool() {
 	[[ -n "$tag" ]] || _die "release tag is missing for $repo"
 
 	mapfile -t candidates < <(_candidate_assets "$tool" "$metadata")
-	_select_candidate "$tool ($tag)" "${candidates[@]}"
+	_select_candidate --allow-skip "$tool ($tag)" "${candidates[@]}"
+	if [[ "$SELECTION_SKIPPED" == 'true' ]]; then
+		printf '⏭️  Skipped %s\n' "$tool"
+		return 0
+	fi
 	asset="$SELECTED_CANDIDATE"
 	archive="$tmp_root/$asset"
 
@@ -845,9 +878,6 @@ _install_release_tool() {
 
 	_configure_tool "$tool"
 	_print_version "$INSTALLED_BINARY"
-	if [[ "$tool" == 'direnv' ]]; then
-		printf '   Bash hook: add eval "$(direnv hook bash)" to your interactive-shell setup (normally ~/.bashrc).\n'
-	fi
 }
 
 # Bear intentionally does not fall back to a distribution package or a source
@@ -996,7 +1026,6 @@ make_dirs() {
 	mkdir -p "$base_bin_dir"
 	mkdir -p "$install_bin_dir"
 	mkdir -p "$bash_completion_dir"
-	mkdir -p "$XDG_DATA_HOME/fonts"
 	mkdir -p "$man1_dir"
 	mkdir -p "$HOME/.cargo/share/man/man1"
 	mkdir -p "$HOME/bin"
@@ -1047,10 +1076,11 @@ GitHub CLI is always installed first. With no TARGETS, all tools are installed.
 
 Targets:
   gh, bat, fd, ripgrep (or rg), helix (or hx), zellij, zoxide,
-  direnv, bear, shfmt, bash-language-server (or bash-lsp), all
+  direnv, starship, bear, shfmt, bash-language-server (or bash-lsp), all
 
 Notes:
   Bear is skipped while upstream provides no precompiled release binary.
+  Nerd Fonts are not installed; install and select one in the local terminal.
   bash-language-server is installed from the npm artifact matching the latest
   GitHub Release. Existing Node.js 20+ and npm are reused; otherwise an
   isolated, checksum-verified Node.js LTS runtime is installed automatically.
@@ -1105,7 +1135,7 @@ parse_args() {
 }
 
 _resolve_targets() {
-	local -a defaults=(bat fd ripgrep helix zellij zoxide direnv bear shfmt bash-language-server)
+	local -a defaults=(bat fd ripgrep helix zellij zoxide direnv starship bear shfmt bash-language-server)
 	local -A seen=()
 	local target normalized
 
@@ -1137,7 +1167,7 @@ _resolve_targets() {
 		bash-lsp | bash-languager-server)
 			normalized='bash-language-server'
 			;;
-		bat | fd | ripgrep | helix | zellij | zoxide | direnv | bear | shfmt | bash-language-server)
+		bat | fd | ripgrep | helix | zellij | zoxide | direnv | starship | bear | shfmt | bash-language-server)
 			normalized="$target"
 			;;
 		*)
