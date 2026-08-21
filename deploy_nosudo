@@ -12,7 +12,7 @@ shopt -s failglob
 #   Linux / aarch64 / glibc or musl
 #
 # Installed tools:
-#   GitHub CLI, bat, fd, ripgrep, Helix, Zellij, zoxide, shfmt,
+#   GitHub CLI, bat, fd, ripgrep, Helix, Zellij, zoxide, direnv, shfmt,
 #   Bash Language Server
 #
 # Bear is also checked, but is skipped while its upstream GitHub Releases
@@ -22,6 +22,7 @@ shopt -s failglob
 # ====================================================================
 
 readonly self_name="${0##*/}"
+readonly script_version='2026.08.21'
 
 debug_flag='false'
 verbose_flag='false'
@@ -622,6 +623,9 @@ _asset_matches_platform() {
 	zoxide)
 		[[ "$name" =~ ^zoxide-.+-${arch}-unknown-linux-musl\.tar\.gz$ ]]
 		;;
+	direnv)
+		[[ "$name" == "direnv.linux-$gh_arch" ]]
+		;;
 	shfmt)
 		[[ "$name" =~ ^shfmt_v.+_linux_${gh_arch}$ ]]
 		;;
@@ -685,9 +689,12 @@ _download_release_asset() {
 	local -r asset_name="$3"
 	local -r destination_dir="$4"
 
+	[[ "$repo" =~ ^[[:alnum:]_.-]+/[[:alnum:]_.-]+$ ]] ||
+		_die "invalid GitHub repository name: $repo"
+
 	printf '⏬ Downloading %s\n' "$asset_name"
 	"$gh_bin" release download "$tag" \
-		--repo "$repo" \
+		--repo="$repo" \
 		--pattern "$asset_name" \
 		--dir "$destination_dir"
 
@@ -784,6 +791,12 @@ _install_release_tool() {
 		binary='zoxide'
 		completion_name='zoxide'
 		;;
+	direnv)
+		repo='direnv/direnv'
+		binary='direnv'
+		completion_name=''
+		package_kind='binary'
+		;;
 	shfmt)
 		repo='mvdan/sh'
 		binary='shfmt'
@@ -832,6 +845,9 @@ _install_release_tool() {
 
 	_configure_tool "$tool"
 	_print_version "$INSTALLED_BINARY"
+	if [[ "$tool" == 'direnv' ]]; then
+		printf '   Bash hook: add eval "$(direnv hook bash)" to your interactive-shell setup (normally ~/.bashrc).\n'
+	fi
 }
 
 # Bear intentionally does not fall back to a distribution package or a source
@@ -1031,7 +1047,7 @@ GitHub CLI is always installed first. With no TARGETS, all tools are installed.
 
 Targets:
   gh, bat, fd, ripgrep (or rg), helix (or hx), zellij, zoxide,
-  bear, shfmt, bash-language-server (or bash-lsp), all
+  direnv, bear, shfmt, bash-language-server (or bash-lsp), all
 
 Notes:
   Bear is skipped while upstream provides no precompiled release binary.
@@ -1043,6 +1059,7 @@ Options:
   -d, --debug    Print detected platform and temporary-directory information
   -v, --verbose  Enable shell tracing
   -f, --force    Update existing dotfile symlinks that point elsewhere
+  -V, --version  Show this script's version
   -h, --help     Show this help message
 EOF
 }
@@ -1058,6 +1075,10 @@ parse_args() {
 			;;
 		-f | --force)
 			force_flag='true'
+			;;
+		-V | --version)
+			printf '%s %s\n' "$self_name" "$script_version"
+			exit 0
 			;;
 		-h | --help)
 			help
@@ -1084,7 +1105,7 @@ parse_args() {
 }
 
 _resolve_targets() {
-	local -a defaults=(bat fd ripgrep helix zellij zoxide bear shfmt bash-language-server)
+	local -a defaults=(bat fd ripgrep helix zellij zoxide direnv bear shfmt bash-language-server)
 	local -A seen=()
 	local target normalized
 
@@ -1116,7 +1137,7 @@ _resolve_targets() {
 		bash-lsp | bash-languager-server)
 			normalized='bash-language-server'
 			;;
-		bat | fd | ripgrep | helix | zellij | zoxide | bear | shfmt | bash-language-server)
+		bat | fd | ripgrep | helix | zellij | zoxide | direnv | bear | shfmt | bash-language-server)
 			normalized="$target"
 			;;
 		*)
