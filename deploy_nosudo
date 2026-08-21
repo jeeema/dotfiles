@@ -1043,6 +1043,9 @@ make_symlinks() {
 		'git/ignore' "$XDG_CONFIG_HOME/git/ignore"
 		'.vimrc' "$HOME/.vimrc"
 		'.nanorc' "$HOME/.nanorc"
+		'clangd/config.yaml' "$XDG_CONFIG_HOME/clangd/config.yaml"
+		'.clang-format' "$HOME/.clang-format"
+		'bear.yml' "$XDG_CONFIG_HOME/bear.yml"
 		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
 		'.amrvis.defaults' "$HOME/.amrvis.defaults"
 		'gnuplot/gnuplotrc' "$HOME/.gnuplot" # For version >= 6, default config file is ~/.config/gnuplot/gnuplotrc
