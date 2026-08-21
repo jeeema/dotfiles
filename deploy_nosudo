@@ -295,7 +295,7 @@ _verify_checksum_manifest() {
 		expected=$(grep -Eo '[[:xdigit:]]{64}' <<<"$matching_line" | head -n 1 || true)
 	else
 		mapfile -t hashes < <(grep -Eo '[[:xdigit:]]{64}' "$manifest" | sort -u || true)
-		if (( ${#hashes[@]} == 1 )); then
+		if ((${#hashes[@]} == 1)); then
 			expected="${hashes[0]}"
 		fi
 	fi
@@ -327,14 +327,14 @@ _install_binary_from_tree() {
 	local match label
 
 	mapfile -d '' -t matches < <(find "$tree" -type f -name "$binary_name" -perm /111 -print0)
-	if (( ${#matches[@]} == 0 )); then
+	if ((${#matches[@]} == 0)); then
 		# Some third-party archives may lose executable mode bits. Fall back to
 		# all same-named files and let the ambiguity check below handle them.
 		mapfile -d '' -t matches < <(find "$tree" -type f -name "$binary_name" -print0)
 	fi
-	(( ${#matches[@]} > 0 )) || _die "binary '$binary_name' not found in the extracted archive"
+	((${#matches[@]} > 0)) || _die "binary '$binary_name' not found in the extracted archive"
 
-	if (( ${#matches[@]} == 1 )); then
+	if ((${#matches[@]} == 1)); then
 		match="${matches[0]}"
 	else
 		for match in "${matches[@]}"; do
@@ -568,7 +568,7 @@ _bootstrap_github_cli() {
 	archive="$tmp_root/$SELECTED_CANDIDATE"
 	_curl_download "$selected_url" "$archive"
 
-	if (( ${#checksum_names[@]} > 0 )); then
+	if ((${#checksum_names[@]} > 0)); then
 		_select_candidate 'GitHub CLI checksum manifest' "${checksum_names[@]}"
 		for ((i = 0; i < ${#checksum_names[@]}; ++i)); do
 			if [[ "${checksum_names[i]}" == "$SELECTED_CANDIDATE" ]]; then
@@ -699,9 +699,9 @@ _checksum_asset_candidates() {
 		esac
 	done < <(tail -n +2 "$metadata")
 
-	if (( ${#exact[@]} > 0 )); then
+	if ((${#exact[@]} > 0)); then
 		printf '%s\n' "${exact[@]}"
-	elif (( ${#general[@]} > 0 )); then
+	elif ((${#general[@]} > 0)); then
 		printf '%s\n' "${general[@]}"
 	fi
 }
@@ -744,7 +744,7 @@ _verify_release_asset() {
 	fi
 
 	mapfile -t checksum_assets < <(_checksum_asset_candidates "$metadata" "$asset_name")
-	if (( ${#checksum_assets[@]} == 0 )); then
+	if ((${#checksum_assets[@]} == 0)); then
 		_warn "no SHA-256 digest or checksum asset is available for $asset_name"
 		return 0
 	fi
@@ -895,7 +895,7 @@ _report_bear_release_status() {
 	[[ -n "$tag" ]] || _die "release tag is missing for $repo"
 	mapfile -t uploaded_assets < <(tail -n +2 "$metadata" | awk -F '\t' 'NF && $1 != "" { print $1 }')
 
-	if (( ${#uploaded_assets[@]} == 0 )); then
+	if ((${#uploaded_assets[@]} == 0)); then
 		_warn "Bear $tag publishes only GitHub-generated source archives, not precompiled release binaries; skipped"
 	else
 		_warn "Bear $tag has release assets, but no supported self-contained binary layout is defined; skipped"
@@ -911,7 +911,7 @@ _ensure_node_runtime() {
 	system_npm=$(command -v npm || true)
 	if [[ -n "$system_node" && -n "$system_npm" ]]; then
 		node_major=$("$system_node" -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)
-		if [[ "$node_major" =~ ^[0-9]+$ ]] && (( node_major >= 20 )); then
+		if [[ "$node_major" =~ ^[0-9]+$ ]] && ((node_major >= 20)); then
 			NODE_BIN="$system_node"
 			NPM_BIN="$system_npm"
 			NODE_RUNTIME_BIN_DIR=$(dirname "$NODE_BIN")
@@ -1045,6 +1045,7 @@ make_symlinks() {
 		'.nanorc' "$HOME/.nanorc"
 		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
 		'.amrvis.defaults' "$HOME/.amrvis.defaults"
+		'gnuplot/gnuplotrc' "$HOME/.gnuplot" # For version >= 6, default config file is ~/.config/gnuplot/gnuplotrc
 		'gnuplot/gnuplot-wxt.conf' "$XDG_CONFIG_HOME/gnuplot/gnuplot-wxt.conf"
 
 		'starship.toml' "$XDG_CONFIG_HOME/starship.toml"
@@ -1095,7 +1096,7 @@ EOF
 }
 
 parse_args() {
-	while (( $# > 0 )); do
+	while (($# > 0)); do
 		case "$1" in
 		-d | --debug)
 			debug_flag='true'
@@ -1139,7 +1140,7 @@ _resolve_targets() {
 	local -A seen=()
 	local target normalized
 
-	if (( ${#requested_targets[@]} == 0 )); then
+	if ((${#requested_targets[@]} == 0)); then
 		requested_targets=(all)
 	fi
 

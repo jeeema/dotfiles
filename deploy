@@ -896,6 +896,7 @@ make_symlinks() {
 		'bear.yml' "$XDG_CONFIG_HOME/bear.yml"
 		'pip.conf' "$XDG_CONFIG_HOME/pip/pip.conf"
 		'.amrvis.defaults' "$HOME/.amrvis.defaults"
+		'gnuplot/gnuplotrc' "$HOME/.gnuplot" # For version >= 6, default config file is ~/.config/gnuplot/gnuplotrc
 		'gnuplot/gnuplot-wxt.conf' "$XDG_CONFIG_HOME/gnuplot/gnuplot-wxt.conf"
 
 		# 'fish/config.fish'              "$XDG_CONFIG_HOME/fish/config.fish"
