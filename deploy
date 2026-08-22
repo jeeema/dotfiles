@@ -184,6 +184,7 @@ apt_seq() {
 		'imagemagick'
 		'iputils-tracepath'
 		'jq'
+		'keychain'
 		'language-pack-ja'
 		'libblas-dev'
 		'liblapack-dev'

@@ -141,6 +141,11 @@ fi
 
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook bash)"
 
+# Reuse a persistent ssh-agent managed by keychain.
+if command -v keychain >/dev/null 2>&1; then
+	eval "$(keychain --eval --quiet)" # For version >= 3, 'keychain agent start --eval' is preferred
+fi
+
 # fnm
 if [[ "${SHELL##*/}" != 'brush' ]]; then
 	if command -v fnm >/dev/null 2>&1; then
