@@ -13,7 +13,7 @@ shopt -s failglob
 #
 # Installed tools:
 #   GitHub CLI, bat, delta, fd, ripgrep, Helix, Zellij, zoxide, direnv,
-#   Starship, shfmt, Bash Language Server
+#   Starship, shfmt, Bash Language Server, ty, Ruff
 #
 # Nerd Fonts are intentionally left for the user to install separately.
 #
@@ -24,7 +24,7 @@ shopt -s failglob
 # ====================================================================
 
 readonly self_name="${0##*/}"
-readonly script_version='2026.08.23'
+readonly script_version='2026.08.24'
 
 debug_flag='false'
 verbose_flag='false'
@@ -661,6 +661,12 @@ _asset_matches_platform() {
 	shfmt)
 		[[ "$name" =~ ^shfmt_v.+_linux_${gh_arch}$ ]]
 		;;
+	ty)
+		[[ "$name" =~ ^ty-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
+		;;
+	ruff)
+		[[ "$name" =~ ^ruff-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
+		;;
 	*)
 		return 1
 		;;
@@ -845,6 +851,16 @@ _install_release_tool() {
 		binary='shfmt'
 		completion_name=''
 		package_kind='binary'
+		;;
+	ty)
+		repo='astral-sh/ty'
+		binary='ty'
+		completion_name=''
+		;;
+	ruff)
+		repo='astral-sh/ruff'
+		binary='ruff'
+		completion_name=''
 		;;
 	*)
 		_die "internal error: unknown tool '$tool'"
@@ -1095,7 +1111,8 @@ are installed. --symlinks-only bypasses tool installation entirely.
 
 Targets:
   gh, bat, delta, fd, ripgrep (or rg), helix (or hx), zellij, zoxide,
-  direnv, starship, bear, shfmt, bash-language-server (or bash-lsp), all
+  direnv, starship, bear, shfmt, bash-language-server (or bash-lsp), ty,
+  ruff, all
 
 Notes:
   Bear is skipped while upstream provides no precompiled release binary.
@@ -1158,7 +1175,7 @@ parse_args() {
 }
 
 _resolve_targets() {
-	local -a defaults=(bat delta fd ripgrep helix zellij zoxide direnv starship bear shfmt bash-language-server)
+	local -a defaults=(bat delta fd ripgrep helix zellij zoxide direnv starship bear shfmt bash-language-server ty ruff)
 	local -A seen=()
 	local target normalized
 
@@ -1190,7 +1207,7 @@ _resolve_targets() {
 		bash-lsp | bash-languager-server)
 			normalized='bash-language-server'
 			;;
-		bat | delta | fd | ripgrep | helix | zellij | zoxide | direnv | starship | bear | shfmt | bash-language-server)
+		bat | delta | fd | ripgrep | helix | zellij | zoxide | direnv | starship | bear | shfmt | bash-language-server | ty | ruff)
 			normalized="$target"
 			;;
 		*)

@@ -738,6 +738,16 @@ nodejs_seq() {
 	printf '✅ COMPLETE installing npm packages.\n\n'
 }
 
+# ============================== Python ==============================
+
+python_seq() {
+
+	# Ruff (https://astral.sh/ruff)
+	uv tool install ruff@latest # Install Ruff globally.
+
+	# ty (https://github.com/astral-sh/ty)
+	uv tool install ty@latest
+}
 # =============================== misc ===============================
 
 # ble.sh
@@ -754,7 +764,7 @@ setup_blesh() {
 
 # compiledb (https://github.com/nickdiego/compiledb)
 setup_compiledb() {
-	uv tool install compiledb
+	uv tool install compiledb@latest
 }
 
 # ====================================================================
@@ -951,6 +961,7 @@ main() {
 	fi
 
 	if [[ "$do_misc_flag" == 'true' || "$is_any_opt_flag" == 'false' ]]; then
+		python_seq
 		setup_blesh
 		setup_compiledb
 	fi

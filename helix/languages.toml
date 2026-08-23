@@ -16,6 +16,10 @@ formatter = { command = "clang-format", args = ["--fallback-style=Google"] }
 indent = { tab-width = 4, unit = "    " }
 
 [[language]]
+name = "python"
+auto-format = true
+
+[[language]]
 name = "rust"
 formatter = { command = "rustfmt" }
 
