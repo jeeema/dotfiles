@@ -108,7 +108,14 @@ if ! shopt -oq posix && [[ $PS1 && ! ${BASH_COMPLETION_VERSINFO:-} ]]; then
 	fi
 fi
 
-export LANG=ja_JP.UTF-8
+if LC_ALL=C locale -a 2>/dev/null | grep -qiE '^ja_JP\.utf-?8$'; then
+	export LANG=ja_JP.UTF-8
+elif LC_ALL=C locale -a 2>/dev/null | grep -qiE '^C\.utf-?8$'; then
+	export LANG=C.UTF-8
+else
+	export LANG=C
+fi
+
 tabs -4 # Tab-stop must be of length 4!
 
 # ================ Functions ================
@@ -157,8 +164,18 @@ fi
 [ -f "$HOME/.fzf.bash" ] && . "$HOME/.fzf.bash"
 
 # uv (https://docs.astral.sh/uv/getting-started/installation/#shell-autocompletion)
-command -v uv >/dev/null 2>&1 && eval "$(uv generate-shell-completion bash)"
-command -v uvx >/dev/null 2>&1 && eval "$(uvx --generate-shell-completion bash)"
+if command -v uv >/dev/null 2>&1; then
+	# this if guard is just for Miyabi-G login node
+	if [[ "$(uname -m)" != 'aarch64' ]]; then
+		eval "$(uv generate-shell-completion bash)"
+	fi
+fi
+if command -v uvx >/dev/null 2>&1; then
+	# this if guard is just for Miyabi-G login node
+	if [[ "$(uname -m)" != 'aarch64' ]]; then
+		eval "$(uvx --generate-shell-completion bash)"
+	fi
+fi
 
 # https://zellij.dev/documentation/controlling-zellij-through-cli.html#completions
 command -v zellij >/dev/null 2>&1 && eval "$(zellij setup --generate-completion bash)"

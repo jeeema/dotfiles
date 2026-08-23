@@ -12,8 +12,8 @@ shopt -s failglob
 #   Linux / aarch64 / glibc or musl
 #
 # Installed tools:
-#   GitHub CLI, bat, fd, ripgrep, Helix, Zellij, zoxide, direnv, Starship,
-#   shfmt, Bash Language Server
+#   GitHub CLI, bat, delta, fd, ripgrep, Helix, Zellij, zoxide, direnv,
+#   Starship, shfmt, Bash Language Server
 #
 # Nerd Fonts are intentionally left for the user to install separately.
 #
@@ -24,11 +24,12 @@ shopt -s failglob
 # ====================================================================
 
 readonly self_name="${0##*/}"
-readonly script_version='2026.08.21'
+readonly script_version='2026.08.23'
 
 debug_flag='false'
 verbose_flag='false'
 force_flag='false'
+symlinks_only_flag='false'
 
 readonly color_reset='\033[0m'
 readonly color_red='\033[31m'
@@ -161,6 +162,11 @@ _select_candidate() {
 
 	case ${#choices[@]} in
 	0)
+		if [[ "$allow_skip" == 'true' ]]; then
+			_warn "no compatible release asset found for $label (arch=$arch, libc=$libc); skipped"
+			SELECTION_SKIPPED='true'
+			return 0
+		fi
 		_die "no compatible release asset found for $label (arch=$arch, libc=$libc)"
 		;;
 	1)
@@ -628,6 +634,9 @@ _asset_matches_platform() {
 	bat)
 		[[ "$name" =~ ^bat-v.+-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
 		;;
+	delta)
+		[[ "$name" =~ ^delta-.+-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
+		;;
 	fd)
 		[[ "$name" =~ ^fd-v.+-${arch}-unknown-linux-(gnu|musl)\.tar\.gz$ ]]
 		;;
@@ -788,6 +797,11 @@ _install_release_tool() {
 		repo='sharkdp/bat'
 		binary='bat'
 		completion_name='bat'
+		;;
+	delta)
+		repo='dandavison/delta'
+		binary='delta'
+		completion_name=''
 		;;
 	fd)
 		repo='sharkdp/fd'
@@ -1076,10 +1090,11 @@ help() {
 Usage: $self_name [OPTIONS...] [TARGETS...]
 
 Install the latest precompiled GitHub Release binaries without sudo.
-GitHub CLI is always installed first. With no TARGETS, all tools are installed.
+For tool deployment, GitHub CLI is installed first. With no TARGETS, all tools
+are installed. --symlinks-only bypasses tool installation entirely.
 
 Targets:
-  gh, bat, fd, ripgrep (or rg), helix (or hx), zellij, zoxide,
+  gh, bat, delta, fd, ripgrep (or rg), helix (or hx), zellij, zoxide,
   direnv, starship, bear, shfmt, bash-language-server (or bash-lsp), all
 
 Notes:
@@ -1090,11 +1105,12 @@ Notes:
   isolated, checksum-verified Node.js LTS runtime is installed automatically.
 
 Options:
-  -d, --debug    Print detected platform and temporary-directory information
-  -v, --verbose  Enable shell tracing
-  -f, --force    Update existing dotfile symlinks that point elsewhere
-  -V, --version  Show this script's version
-  -h, --help     Show this help message
+  -d, --debug          Print detected platform and temporary-directory information
+  -v, --verbose        Enable shell tracing
+  -f, --force          Update existing dotfile symlinks that point elsewhere
+  -s, --symlinks-only  Run make_symlinks only; do not install any tools
+  -V, --version        Show this script's version
+  -h, --help           Show this help message
 EOF
 }
 
@@ -1109,6 +1125,9 @@ parse_args() {
 			;;
 		-f | --force)
 			force_flag='true'
+			;;
+		-s | --symlinks-only)
+			symlinks_only_flag='true'
 			;;
 		-V | --version)
 			printf '%s %s\n' "$self_name" "$script_version"
@@ -1139,7 +1158,7 @@ parse_args() {
 }
 
 _resolve_targets() {
-	local -a defaults=(bat fd ripgrep helix zellij zoxide direnv starship bear shfmt bash-language-server)
+	local -a defaults=(bat delta fd ripgrep helix zellij zoxide direnv starship bear shfmt bash-language-server)
 	local -A seen=()
 	local target normalized
 
@@ -1171,7 +1190,7 @@ _resolve_targets() {
 		bash-lsp | bash-languager-server)
 			normalized='bash-language-server'
 			;;
-		bat | fd | ripgrep | helix | zellij | zoxide | direnv | starship | bear | shfmt | bash-language-server)
+		bat | delta | fd | ripgrep | helix | zellij | zoxide | direnv | starship | bear | shfmt | bash-language-server)
 			normalized="$target"
 			;;
 		*)
@@ -1190,6 +1209,14 @@ main() {
 	local tool
 
 	parse_args "$@"
+
+	if [[ "$symlinks_only_flag" == 'true' ]]; then
+		((${#requested_targets[@]} == 0)) || _die '--symlinks-only does not accept TARGETS'
+		make_symlinks
+		printf '\n🎉 Symlink setup completed successfully.\n'
+		return 0
+	fi
+
 	_resolve_targets
 
 	for tool in awk cp curl cut dirname find grep install mktemp mv readlink rmdir sha256sum sort tail tar; do
@@ -1228,7 +1255,6 @@ main() {
 	make_symlinks
 
 	printf '\n🎉 Deployment completed successfully.\n'
-	printf '   Restart the shell, or run: . "%s/.profile"\n' "$HOME"
 }
 
 (return 0 2>/dev/null) || main "$@"

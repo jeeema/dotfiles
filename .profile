@@ -35,7 +35,7 @@ case "$(uname -m)" in
 x86_64)
 	LOCAL_PLATFORM=""
 	;;
-aarch64)
+aarch64) #  for Miyabi-G login node
 	LOCAL_PLATFORM="aarch64-linux-gnu"
 	;;
 *)
