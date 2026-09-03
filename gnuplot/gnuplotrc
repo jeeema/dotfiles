@@ -3,9 +3,6 @@ set encoding utf8
 # CSV by default
 set datafile separator comma
 
-# Treat the first row as header
-set datafile columnheaders
-
 # Treat NaN as missing data
 set datafile missing NaN
 
