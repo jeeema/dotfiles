@@ -781,7 +781,9 @@ _configure_tool() {
 
 	case "$tool" in
 	bat)
-		_safe_ln_s "$dotfiles_path/bat/config" "$XDG_CONFIG_HOME/bat/config"
+		_safe_ln_s "$dotfiles_path/bat/config" "$("$INSTALLED_BINARY" --config-file)"
+		_safe_ln_s "$dotfiles_path/bat/themes" "$("$INSTALLED_BINARY" --config-dir)/themes"
+		"$INSTALLED_BINARY" cache --build # Update the binary cache
 		;;
 	fd)
 		_safe_ln_s "$dotfiles_path/fd/ignore" "$XDG_CONFIG_HOME/fd/ignore"
