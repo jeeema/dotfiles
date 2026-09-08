@@ -654,6 +654,7 @@ go_seq() {
 	echo '⏬ Installing Go tools...'
 
 	_setup_fzf
+	_setup_ghq
 	_setup_lazygit
 	_setup_shfmt
 
