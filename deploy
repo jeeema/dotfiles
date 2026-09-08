@@ -12,7 +12,7 @@ shopt -s failglob
 
 # ======================= Versions (IMPORTANT) =======================
 
-readonly go_version='1.26.2' # 2026/05/04
+readonly go_version='1.27.1' # 2026/00/08
 readonly nodejs_version='26' # 2026/07/21, current (not LTS)
 
 # ====================================================================
@@ -598,8 +598,8 @@ _install_go() {
 		echo -e "${color_red}error: Something is wrong with your existing Go installation.${color_reset}" >&2
 		exit 1
 	else
-		curl --output-dir "$HOME/src/" -fLO "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz"
-		sudo tar -C '/usr/local' -xzf "$HOME/src/go${go_version}.linux-amd64.tar.gz"
+		curl --output-dir "$HOME/Downloads" -fLO "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz"
+		sudo tar -C '/usr/local' -xzf "$HOME/Downloads/go${go_version}.linux-amd64.tar.gz"
 		export PATH="$PATH:$HOME/go/bin:/usr/local/go/bin"
 	fi
 }
