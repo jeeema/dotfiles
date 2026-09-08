@@ -150,7 +150,9 @@ command -v direnv >/dev/null 2>&1 && eval "$(direnv hook bash)"
 
 # Reuse a persistent ssh-agent managed by keychain.
 if command -v keychain >/dev/null 2>&1; then
-	eval "$(keychain --eval --quiet)" # For version >= 3, 'keychain agent start --eval' is preferred
+	if [[ -z "$SSH_AUTH_SOCK" ]]; then
+		eval "$(keychain --eval --quiet)" # For version >= 3, 'keychain agent start --eval' is preferred
+	fi
 fi
 
 # fnm
