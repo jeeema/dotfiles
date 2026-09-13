@@ -12,7 +12,7 @@ shopt -s failglob
 
 # ======================= Versions (IMPORTANT) =======================
 
-readonly go_version='1.27.1' # 2026/00/08
+readonly go_version='1.27.1' # 2026/09/01
 readonly nodejs_version='26' # 2026/07/21, current (not LTS)
 
 # ====================================================================
@@ -52,17 +52,30 @@ _command_exists() {
 	command -v "$1" >/dev/null 2>&1
 }
 
-# TODO: Add print messsage when skip
-# TODO: Add exit on error when src is not present
-# TODO: Add path normalization
 # creates a symbolic link in a safe way
 _safe_ln_s() {
-	# executes only if linked destination($2) is neither present nor a symblic link
-	if [[ ! -e $2 ]] && [[ ! -L $2 ]]; then
-		mkdir -p "$(dirname "$2")"
-		echo "ln -s $1 $2"
-		ln -s "$1" "$2"
+	local -r src="$1"
+	local -r dst="$2"
+
+	if [[ ! -e $src ]]; then
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_red}[ERROR]${color_reset} Source does not exist: '$src'." >&2
+		return 1
 	fi
+
+	# Check before normalization so that an existing or broken symlink
+	# is treated as the destination itself rather than its target.
+	if [[ -e $dst || -L $dst ]]; then
+		echo "Skip linking $src -> $dst: destination already exists."
+		return 0
+	fi
+
+	local src_abs dst_abs
+	src_abs="$(realpath -e -- "$src")"
+	dst_abs="$(realpath -m -- "$dst")"
+
+	mkdir -p -- "$(dirname -- "$dst_abs")"
+	echo "ln -s $src_abs $dst_abs"
+	ln -s -- "$src_abs" "$dst_abs"
 }
 
 # Interactive installation helper
@@ -346,7 +359,14 @@ _setup_fd() {
 }
 
 _setup_helix() {
-	if ! command -v hx >/dev/null 2>&1; then
+	local source_rev installed_rev=''
+	source_rev="$(git -C "$submodules_path/helix" rev-parse HEAD)"
+
+	if _command_exists hx; then
+		installed_rev="$(hx --version | sed -nE 's/.*\(([0-9a-fA-F]+)(-dirty)?\).*/\1/p')"
+	fi
+
+	if [[ -z $installed_rev || $source_rev != "$installed_rev"* ]]; then
 		# Optimized build of Helix
 		echo "Entering $submodules_path/helix"
 		pushd "$submodules_path/helix" >/dev/null
@@ -358,7 +378,12 @@ _setup_helix() {
 			"${cargo_opts[@]}"
 		popd >/dev/null
 		echo "Leaving $submodules_path/helix"
+	else
+		echo "✅ Helix is already built from the current source revision ($installed_rev)."
 	fi
+
+	# runtime
+	_safe_ln_s "$submodules_path/helix/runtime" "$XDG_CONFIG_HOME/helix/runtime"
 
 	# shell completion
 	case $shell_basename in
@@ -375,6 +400,7 @@ _setup_helix() {
 		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} No shell configuration found for '${shell_basename}'."
 		;;
 	esac
+
 	# config files
 	_safe_ln_s "$dotfiles_path/helix/config.toml" "$XDG_CONFIG_HOME/helix/config.toml"
 	_safe_ln_s "$dotfiles_path/helix/languages.toml" "$XDG_CONFIG_HOME/helix/languages.toml"
@@ -594,17 +620,92 @@ _setup_shfmt() {
 
 # --------------------------------------------------------------------
 
-# TODO
 _install_go() {
-	if [ -d '/usr/local/go' ]; then
-		echo -e "${color_red}error: Something is wrong with your existing Go installation.${color_reset}" >&2
-		exit 1
-	else
-		curl --output-dir "$HOME/Downloads" -fLO "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz"
-		sudo tar -C '/usr/local' -xzf "$HOME/Downloads/go${go_version}.linux-amd64.tar.gz"
-		PATH="${PATH:+$PATH:}$(go env GOPATH)/bin:/usr/local/go/bin"
-		export PATH
+	local go_arch
+	if [[ $(uname -s) != 'Linux' ]]; then
+		echo -e "${color_red}error: unsupported OS: $(uname -s). Only Linux is supported.${color_reset}" >&2
+		return 1
 	fi
+
+	case "$(uname -m)" in
+	x86_64)
+		go_arch='amd64'
+		;;
+	i[3-6]86)
+		go_arch='386'
+		;;
+	aarch64 | arm64)
+		go_arch='arm64'
+		;;
+	arm | armv6l | armv7l | armv8l)
+		go_arch='armv6l'
+		;;
+	loongarch64)
+		go_arch='loong64'
+		;;
+	mips)
+		go_arch='mips'
+		;;
+	mipsel)
+		go_arch='mipsle'
+		;;
+	mips64)
+		go_arch='mips64'
+		;;
+	mips64el)
+		go_arch='mips64le'
+		;;
+	ppc64)
+		go_arch='ppc64'
+		;;
+	ppc64le)
+		go_arch='ppc64le'
+		;;
+	riscv64)
+		go_arch='riscv64'
+		;;
+	s390x)
+		go_arch='s390x'
+		;;
+	*)
+		echo -e "${color_red}error: unsupported architecture: $(uname -m).${color_reset}" >&2
+		return 1
+		;;
+	esac
+
+	local -r go_archive_name="go${go_version}.linux-${go_arch}.tar.gz"
+
+	if ! _command_exists jq; then
+		echo -e "${color_red}error: jq is required to verify the Go checksum.${color_reset}" >&2
+		return 1
+	fi
+
+	(
+		local go_archive expected_sha256
+		go_archive="$(mktemp --suffix='.tar.gz')"
+		trap 'rm -f "$go_archive"' EXIT
+
+		curl -fL -o "$go_archive" "https://go.dev/dl/$go_archive_name"
+
+		expected_sha256="$(
+			curl -fsSL 'https://go.dev/dl/?mode=json&include=all' |
+				jq -er --arg filename "$go_archive_name" '
+					first(.[] | .files[] | select(.filename == $filename) | .sha256)
+					// error("SHA-256 checksum not found")
+				'
+		)"
+
+		printf '%s  %s\n' "$expected_sha256" "$go_archive" | sha256sum --check -
+
+		sudo rm -rf '/usr/local/go'
+		sudo tar -C '/usr/local' -xzf "$go_archive"
+	)
+
+	if [[ $(command -v go 2>/dev/null || true) != '/usr/local/go/bin/go' ]]; then
+		PATH="/usr/local/go/bin${PATH:+:$PATH}"
+	fi
+	PATH="${PATH:+$PATH:}$(go env GOPATH)/bin"
+	export PATH
 }
 
 go_seq() {
@@ -617,7 +718,20 @@ go_seq() {
 		return
 	fi
 
-	# TODO
+	# /usr/local/go may already be installed even when its bin directory
+	# is missing from PATH. Prefer that installation when it exists.
+	if [[ -x /usr/local/go/bin/go ]]; then
+		if [[ :$PATH: != *':/usr/local/go/bin:'* ]]; then
+			echo -e "${color_yellow}[WARN] Go is installed in /usr/local/go, but /usr/local/go/bin is not in PATH. Adding it for this run.${color_reset}"
+			PATH="/usr/local/go/bin${PATH:+:$PATH}"
+			export PATH
+		elif [[ $(command -v go 2>/dev/null || true) != '/usr/local/go/bin/go' ]]; then
+			PATH="/usr/local/go/bin${PATH:+:$PATH}"
+			export PATH
+		fi
+	fi
+
+	local yn
 	# https://go.dev/doc/install
 	if _command_exists go; then
 		local installed_go_version
@@ -625,15 +739,12 @@ go_seq() {
 		if [[ $installed_go_version = "$go_version" ]]; then
 			echo "✅ Go $go_version is already installed."
 		else
-			read -rp "Version $go_version is specified, but it appears that version $installed_go_version is already installed. Do you want to remove the existing version $installed_go_version and install version $go_version? [Y/n]: " yn
+			read -rp "Go $installed_go_version is already installed. Replace it with Go $go_version? [Y/n]: " yn
 			case "$yn" in
 			[Nn]*)
 				echo 'Skip installing Go.'
 				;;
 			*)
-				echo "❗ Removing Go $installed_go_version..."
-				sudo rm -rf '/usr/local/go'
-				echo "Removed Go $installed_go_version."
 				echo "⏬ Installing Go $go_version..."
 				_install_go
 				echo -e "✅ COMPLETE installing Go $go_version.\n"
@@ -644,7 +755,8 @@ go_seq() {
 		read -rp 'Go is not installed. Do you want to install it? [Y/n]: ' yn
 		case "$yn" in
 		[Nn]*)
-			echo 'Skip installing Go.'
+			echo 'Skip installing Go and Go tools.'
+			return
 			;;
 		*)
 			echo "⏬ Installing Go $go_version..."
@@ -652,6 +764,15 @@ go_seq() {
 			echo -e "✅ COMPLETE installing Go $go_version.\n"
 			;;
 		esac
+	fi
+
+	# Keep binaries installed by `go install` available in this process,
+	# including when Go was already installed before running this script.
+	local go_bin_path
+	go_bin_path="$(go env GOPATH)/bin"
+	if [[ :$PATH: != *":$go_bin_path:"* ]]; then
+		PATH="${PATH:+$PATH:}$go_bin_path"
+		export PATH
 	fi
 
 	echo '⏬ Installing Go tools...'

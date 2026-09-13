@@ -71,7 +71,6 @@ fi
 
 if command -v hx >/dev/null 2>&1; then
 	export EDITOR='hx'
-	export HELIX_RUNTIME="$HOME/dotfiles/submodules/helix/runtime"
 else
 	export EDITOR='vim'
 fi

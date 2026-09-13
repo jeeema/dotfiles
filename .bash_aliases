@@ -49,11 +49,6 @@ else
 	alias clip='wl-copy'
 fi
 
-if [[ ${PETSC_DIR:-} ]]; then
-	alias petscmpiexec='$PETSC_DIR/lib/petsc/bin/petscmpiexec'
-	alias petscversion='$PETSC_DIR/lib/petsc/bin/petscversion'
-fi
-
 # ================ Functions ================
 
 # AMD machine
