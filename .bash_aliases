@@ -54,14 +54,36 @@ if [[ ${PETSC_DIR:-} ]]; then
 	alias petscversion='$PETSC_DIR/lib/petsc/bin/petscversion'
 fi
 
-# Intel oneAPI
-if [[ -f '/opt/intel/oneapi/setvars.sh' ]]; then
-	alias loadintel='. /opt/intel/oneapi/setvars.sh'
-fi
+# ================ Functions ================
 
 # AMD machine
-readonly AOCC_VERSION='5.1.0'
-readonly AOCL_VERSION='5.2.0'
-if [[ -f /opt/AMD/aocc-compiler-$AOCC_VERSION/setenv_AOCC.sh && -f /opt/AMD/aocl/aocl-linux-aocc-$AOCL_VERSION/aocc/amd-libs.cfg ]]; then
-	alias loadamd='. /opt/AMD/aocc-compiler-$AOCC_VERSION/setenv_AOCC.sh && . /opt/AMD/aocl/aocl-linux-aocc-$AOCL_VERSION/aocc/amd-libs.cfg'
-fi
+loadamd() {
+	local -r aocc_version='5.2.0'
+	local -r aocl_version='5.3.0'
+
+	local aocc_env="/opt/AMD/aocc-compiler-$aocc_version/setenv_AOCC.sh"
+	local aocl_env="/opt/AMD/aocl/aocl-linux-aocc-$aocl_version/aocc/amd-libs.cfg"
+
+	if [[ -f $aocc_env && -f $aocl_env ]]; then
+		. "$aocc_env" && . "$aocl_env"
+	else
+		printf 'AOCC/AOCL environment files not found\n' >&2
+		return 1
+	fi
+}
+
+# ripgrep->delta
+# https://dandavison.github.io/delta/grep.html
+rd() {
+	rg --json -C 2 "$@" | delta
+}
+
+# Yazi wrapper (https://yazi-rs.github.io/docs/quick-start#shell-wrapper)
+y() {
+	local tmp cwd
+	tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd <"$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd" || return
+	command rm -f -- "$tmp"
+}

@@ -76,12 +76,15 @@ else
 	export EDITOR='vim'
 fi
 
-if [ -d "$HOME/go/bin" ]; then
-	export PATH="${PATH:+$PATH:}$HOME/go/bin"
-fi
-
 if [ -d '/usr/local/go/bin' ]; then
 	export PATH="${PATH:+$PATH:}/usr/local/go/bin"
+fi
+
+if command -v go >/dev/null 2>&1; then
+	if [ -d "$(go env GOPATH)/bin" ]; then
+		PATH="${PATH:+$PATH:}$(go env GOPATH)/bin"
+		export PATH
+	fi
 fi
 
 if [ -f "$HOME/.ghcup/env" ]; then
@@ -98,17 +101,6 @@ fi
 # Add ~/modulefiles to Lmod's search path
 if command -v module >/dev/null 2>&1; then
 	module use "$HOME/modulefiles"
-fi
-
-if command -v ghq >/dev/null 2>&1; then
-	_GHQ_ROOT="$(ghq root)"
-	if [ -d "$_GHQ_ROOT/github.com/AMReX-Codes/amrex" ]; then
-		export AMREX_HOME="$_GHQ_ROOT/github.com/AMReX-Codes/amrex"
-	fi
-
-	if [ -d "$_GHQ_ROOT/gitlab.com/petsc/petsc" ]; then
-		export PETSC_DIR="$_GHQ_ROOT/gitlab.com/petsc/petsc"
-	fi
 fi
 
 # fzf

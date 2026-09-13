@@ -242,7 +242,7 @@ _setup_bat() {
 	echo "Leaving $submodules_path/bat"
 
 	# manpage
-	\cp "$(fd bat.1 "$submodules_path"/bat/target/release/build/bat-*)" "$HOME/.cargo/share/man/man1"
+	\cp "$(find "$submodules_path"/bat/target/release/build/bat-* -type f -name 'bat.1')" "$HOME/.cargo/share/man/man1"
 
 	# shell completion (https://github.com/sharkdp/bat#from-cratesio
 	case $shell_basename in
@@ -346,17 +346,19 @@ _setup_fd() {
 }
 
 _setup_helix() {
-	# Optimized build of Helix
-	echo "Entering $submodules_path/helix"
-	pushd "$submodules_path/helix" >/dev/null
-	cargo install \
-		--profile opt \
-		--config 'build.rustflags="-C target-cpu=native"' \
-		--path helix-term \
-		--locked \
-		"${cargo_opts[@]}"
-	popd >/dev/null
-	echo "Leaving $submodules_path/helix"
+	if ! command -v hx >/dev/null 2>&1; then
+		# Optimized build of Helix
+		echo "Entering $submodules_path/helix"
+		pushd "$submodules_path/helix" >/dev/null
+		cargo install \
+			--profile opt \
+			--config 'build.rustflags="-C target-cpu=native"' \
+			--path helix-term \
+			--locked \
+			"${cargo_opts[@]}"
+		popd >/dev/null
+		echo "Leaving $submodules_path/helix"
+	fi
 
 	# shell completion
 	case $shell_basename in
@@ -582,7 +584,7 @@ _setup_ghq() {
 # -------- lazygit (https://github.com/jesseduffield/lazygit#installation) --------
 _setup_lazygit() {
 	go install "${go_opts[@]}" github.com/jesseduffield/lazygit@latest
-	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$(lazygit --print-config-dir)/config.yml"
+	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$("$(go env GOPATH)"/bin/lazygit --print-config-dir)/config.yml"
 }
 
 # -------- shfmt (https://github.com/mvdan/sh#shfmt) --------
@@ -600,7 +602,8 @@ _install_go() {
 	else
 		curl --output-dir "$HOME/Downloads" -fLO "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz"
 		sudo tar -C '/usr/local' -xzf "$HOME/Downloads/go${go_version}.linux-amd64.tar.gz"
-		export PATH="$PATH:$HOME/go/bin:/usr/local/go/bin"
+		PATH="${PATH:+$PATH:}$(go env GOPATH)/bin:/usr/local/go/bin"
+		export PATH
 	fi
 }
 
@@ -630,7 +633,7 @@ go_seq() {
 			*)
 				echo "❗ Removing Go $installed_go_version..."
 				sudo rm -rf '/usr/local/go'
-				echo "✅ COMPLETE removing Go $installed_go_version."
+				echo "Removed Go $installed_go_version."
 				echo "⏬ Installing Go $go_version..."
 				_install_go
 				echo -e "✅ COMPLETE installing Go $go_version.\n"
