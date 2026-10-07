@@ -17,7 +17,8 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 # fi
 
 if [ -n "$WSL_DISTRO_NAME" ]; then
-	export PATH="/usr/lib/linux-tools-6.8.0-139${PATH:+:$PATH}"
+	PATH="$(printf '%s\n' /usr/lib/linux-tools-[0-9]* | sort -V | tail -n 1)${PATH:+:$PATH}"
+	export PATH
 fi
 
 # CUDA Toolkit

@@ -488,6 +488,23 @@ _setup_tealdeer() {
 # -------- Typst (https://typst.app/) --------
 _setup_typst() {
 	cargo install --locked "${cargo_opts[@]}" typst-cli # https://github.com/typst/typst#installation
+
+	# shell completion
+	case $shell_basename in
+	bash)
+		typst completions bash >"$bash_completion_dir/typst.bash"
+		;;
+	zsh)
+		# ensure ~/.zfunc is in your fpath
+		typst completions zsh >"$HOME/.zfunc/_typst"
+		;;
+	fish)
+		typst completions fish >"$XDG_CONFIG_HOME/fish/completions/typst.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} Add the shell configuration for '${shell_basename}'."
+		;;
+	esac
 }
 
 # TODO
