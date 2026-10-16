@@ -1006,9 +1006,27 @@ _install_bash_language_server() {
 	_ensure_node_runtime
 
 	metadata="$tmp_root/release-bash-language-server.tsv"
-	_fetch_release_metadata "$repo" "$metadata"
-	IFS= read -r tag <"$metadata"
-	[[ -n "$tag" ]] || _die "release tag is missing for $repo"
+	printf '🔄 Retrieving server release metadata from %s...\n' "$repo"
+
+	if ! "$gh_bin" api "repos/$repo/releases?per_page=100" --paginate \
+		--jq '
+			.[]
+			| select(.draft == false and .prerelease == false)
+			| select(.tag_name | startswith("server-"))
+			| [.published_at, .tag_name]
+			| @tsv
+		' >"$metadata"; then
+		_die "failed to retrieve server releases from $repo"
+	fi
+
+	tag=$(LC_ALL=C awk -F '\t' '
+		$1 > latest {
+			latest = $1
+			tag = $2
+		}
+		END { print tag }
+	' "$metadata")
+	[[ -n "$tag" ]] || _die "no stable server release found for $repo"
 	version="${tag#server-}"
 	[[ "$version" != "$tag" && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] ||
 		_die "unexpected bash-language-server release tag: $tag"
