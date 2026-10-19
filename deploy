@@ -627,6 +627,25 @@ _setup_ghq() {
 # -------- lazygit (https://github.com/jesseduffield/lazygit#installation) --------
 _setup_lazygit() {
 	go install "${go_opts[@]}" github.com/jesseduffield/lazygit@latest
+
+	# shell completion
+	case $shell_basename in
+	bash)
+		lazygit completion bash >"$bash_completion_dir/lazygit.bash"
+		;;
+	zsh)
+		# ensure ~/.zfunc is in your fpath
+		lazygit completion zsh >"$HOME/.zfunc/_lazygit"
+		;;
+	fish)
+		lazygit completion fish >"$XDG_CONFIG_HOME/fish/completions/lazygit.fish"
+		;;
+	*)
+		echo -e "$self_name: ${FUNCNAME[0]}(): ${color_yellow}[WARN]${color_reset} Add the shell configuration for '${shell_basename}'."
+		;;
+	esac
+
+	# config file
 	_safe_ln_s "$dotfiles_path/lazygit/config.yml" "$("$(go env GOPATH)"/bin/lazygit --print-config-dir)/config.yml"
 }
 
